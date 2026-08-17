@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-head">
+  <h1>Import PHIVOLCS Earthquakes</h1>
+  <p>Parsed from the PHIVOLCS earthquake list. Only events within {{ window_hours }} hours from event time are shown. Date-Time is Philippine Time; Event Key is converted UTC in YYYYMMDDHHMM format.</p>
+</section>
+
+<form method="post">
+  <section class="data-section">
+    <table>
+      <thead>
+        <tr>
+          <th>Import</th>
+          <th>PH Time</th>
+          <th>UTC Event Key</th>
+          <th>Lat</th>
+          <th>Long</th>
+          <th>Depth</th>
+          <th>Mag</th>
+          <th>Region</th>
+          <th>Location</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td>
+            {% if event.event_key in existing_keys %}
+              Existing
+            {% else %}
+              <input type="checkbox" name="event_key" value="{{ event.event_key }}" checked>
+            {% endif %}
+          </td>
+          <td>{{ event.ph_time }}</td>
+          <td><strong>{{ event.event_key }}</strong></td>
+          <td>{{ event.latitude }}</td>
+          <td>{{ event.longitude }}</td>
+          <td>{{ event.depth_km }}</td>
+          <td>{{ event.magnitude }}</td>
+          <td>{{ event.region_code }}</td>
+          <td>{{ event.reference_location }}</td>
+          <td><a href="{{ event.source_url }}" target="_blank">Detail</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10">No PHIVOLCS events within {{ window_hours }} hours were found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <div class="action-row">
+    <button type="submit">Import Selected Events</button>
+    <a class="sheet-button secondary" href="/events/new">Manual Event</a>
+  </div>
+</form>
+{% endblock %}

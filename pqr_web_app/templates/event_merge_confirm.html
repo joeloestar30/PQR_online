@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Confirm PQR Merge</h1>
+    <p>{{ merge_help_text }}</p>
+  </div>
+  <div class="page-head-action">
+    <a class="outline-button" href="{{ back_url }}">Cancel</a>
+  </div>
+</section>
+
+<section class="event-merge-grid">
+  <article class="portal-card event-merge-card">
+    <div class="card-title">{{ source_label }}</div>
+    <dl class="event-merge-details">
+      <dt>Event Key</dt><dd>{{ placeholder.event_key }}</dd>
+      <dt>PST Date-Time</dt><dd>{{ placeholder.event_datetime_pst }}</dd>
+      <dt>Location</dt><dd>{{ placeholder.reference_location }}</dd>
+      <dt>Region</dt><dd>{{ placeholder.region_code }}</dd>
+      <dt>PQR Reports</dt><dd>{{ placeholder.pqr_count }}</dd>
+    </dl>
+  </article>
+
+  <article class="portal-card event-merge-card">
+    <div class="card-title">{{ target_label }}</div>
+    <dl class="event-merge-details">
+      <dt>Event Key</dt><dd>{{ target.event_key }}</dd>
+      <dt>PST Date-Time</dt><dd>{{ target.event_datetime_pst }}</dd>
+      <dt>Magnitude</dt><dd>M{{ target.magnitude or "" }}</dd>
+      <dt>Region</dt><dd>{{ target.region_code }}</dd>
+      <dt>Location</dt><dd>{{ target.reference_location }}</dd>
+    </dl>
+  </article>
+</section>
+
+<section class="portal-card event-merge-card">
+  <div class="card-title">Merge Safety Check</div>
+  <div class="event-merge-summary">
+    <div><span>Time Difference</span><strong>{{ candidate.time_diff_label }}</strong></div>
+    <div><span>Conflicting Stations</span><strong>{{ candidate.conflicts|length }}</strong></div>
+    <div><span>Auto-Movable PQR</span><strong>{{ candidate.movable_count }}</strong></div>
+  </div>
+  {% if candidate.conflicts %}
+  <section class="messages">
+    <div>Conflicting stations already have PQR in the target event. Non-conflicting PQR will be moved automatically. For conflicts, the default is to keep the target PQR and retain the source PQR for audit only.</div>
+  </section>
+  {% endif %}
+  <form method="post" action="/events/{{ placeholder.id }}/merge-pqr/{{ target.id }}" class="event-merge-actions" data-preserve-scroll>
+    <input type="hidden" name="return_url" value="{{ back_url }}">
+    {% if conflict_rows %}
+    <div class="event-merge-conflicts">
+      <div class="card-title">Review Conflicting Station PQR</div>
+      <div class="event-merge-conflict-table-wrap">
+        <table class="portal-table event-merge-conflict-table">
+          <thead>
+            <tr>
+              <th>Station</th>
+              <th>Source PQR</th>
+              <th>Target PQR</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for conflict in conflict_rows %}
+            <tr>
+              <td>
+                <strong>{{ conflict.station_code }}</strong>
+                <span>{{ conflict.station_name }}</span>
+              </td>
+              <td>
+                <div><b>Remarks:</b> {{ conflict.placeholder.remarks }}</div>
+                <div><b>Phase:</b> {{ conflict.placeholder.phase }}</div>
+                <div><b>Intensity:</b> {{ conflict.placeholder.intensity }}</div>
+              </td>
+              <td>
+                <div><b>Remarks:</b> {{ conflict.target.remarks }}</div>
+                <div><b>Phase:</b> {{ conflict.target.phase }}</div>
+                <div><b>Intensity:</b> {{ conflict.target.intensity }}</div>
+              </td>
+              <td>
+                <select name="conflict_action_{{ conflict.placeholder_report_id }}">
+                  <option value="keep_target" selected>Keep Target PQR</option>
+                  <option value="replace_with_placeholder">Replace with Placeholder</option>
+                  <option value="skip">Skip / Audit Only</option>
+                </select>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    <div class="event-merge-action-row">
+    <a class="outline-button" href="{{ back_url }}">Back</a>
+    <button type="submit" class="primary-action">Confirm Merge PQR</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

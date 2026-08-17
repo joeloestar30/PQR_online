@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block content %}
+{% if event %}
+<section class="event-query-head">
+  <div class="event-query-title">
+    <div class="event-query-icon" aria-hidden="true">~</div>
+    <div>
+      <h1>PQR Event Query</h1>
+      <p>Preliminary Quake Report System</p>
+    </div>
+  </div>
+  <div class="event-query-actions">
+    <a class="outline-button" href="/events/query/export.csv?recent_event_key={{ filters.recent_event_key }}&manual_event_key={{ filters.manual_event_key }}&station_search={{ filters.station_search }}&report_category={{ filters.report_category }}&station_cluster={{ filters.station_cluster }}">Export CSV</a>
+    <button type="button" class="outline-button" onclick="window.print()">Print</button>
+  </div>
+</section>
+
+<section class="event-query-meta">
+  <div>
+    <span>Event ID</span>
+    <strong class="event-query-id">{{ event.event_key }}</strong>
+  </div>
+  <div>
+    <span>Origin Time (PHT)</span>
+    <strong>{{ event.event_datetime_pst }}</strong>
+  </div>
+  <div>
+    <span>Magnitude (Ml)</span>
+    <strong>{{ event.magnitude or "-" }}</strong>
+  </div>
+  <div>
+    <span>Region</span>
+    <strong>{{ event.region_code }}</strong>
+  </div>
+  <div>
+    <span>Status</span>
+    <strong class="query-status">{{ event.status_label }}</strong>
+  </div>
+  <div>
+    {% if event.map_url %}
+    <a class="outline-button" href="{{ event.map_url }}" target="_blank" rel="noreferrer">View on Map</a>
+    {% else %}
+    <span class="muted-text">No coordinates</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="portal-card event-query-filter-card">
+  <form class="event-query-filters" method="get" action="/events/query">
+    <label>Recent Event ID
+      <select name="recent_event_key">
+        {% for recent in recent_events %}
+        <option value="{{ recent.event_key }}" {% if filters.recent_event_key == recent.event_key %}selected{% endif %}>
+          {{ recent.event_key }} - M{{ recent.magnitude or "-" }} - {{ recent.event_datetime_pst }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Manual Event ID
+      <input name="manual_event_key" value="{{ filters.manual_event_key }}" placeholder="Input older event ID">
+    </label>
+    <label class="wide-query-filter">Station
+      <input name="station_search" value="{{ filters.station_search }}" placeholder="Search by station code or name...">
+    </label>
+    <label>Report Category
+      <select name="report_category">
+        <option value="">All Categories</option>
+        {% for category in report_categories %}
+        <option value="{{ category }}" {% if filters.report_category == category %}selected{% endif %}>{{ category }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Station Cluster
+      <select name="station_cluster">
+        <option value="">All Clusters</option>
+        {% for cluster in station_clusters %}
+        <option value="{{ cluster }}" {% if filters.station_cluster == cluster %}selected{% endif %}>{{ cluster.replace(" Cluster", "") }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="event-query-filter-actions">
+      <button type="submit" class="primary-action">Search</button>
+      <a class="outline-button" href="/events/query?recent_event_key={{ filters.recent_event_key }}&manual_event_key={{ filters.manual_event_key }}">Clear Filters</a>
+    </div>
+  </form>
+</section>
+
+<section class="event-query-grid">
+  <article class="dashboard-card">
+    <header class="panel-title"><div><span class="panel-icon">i</span>Reported Status by Category</div></header>
+    <div class="event-query-category-wrap">
+      <table class="event-query-category-table">
+        <thead>
+          <tr><th>Category</th><th>Stations</th></tr>
+        </thead>
+        <tbody>
+          {% for row in category_rows %}
+          <tr>
+            <td>{{ row.category }}</td>
+            <td>
+              {% if row.station_codes %}
+                {% for code in row.station_codes %}
+                <span class="station-code-chip">{{ code }}</span>
+                {% endfor %}
+              {% else %}
+                <span class="muted-text">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="dashboard-card">
+    <header class="panel-title"><div><span class="panel-icon">i</span>Report Summary</div></header>
+    <div class="event-query-summary">
+      <div class="query-summary-card blue"><span aria-hidden="true"></span><strong>{{ summary.total }}</strong><small>Total Stations<br>Queried</small></div>
+      <div class="query-summary-card green"><span aria-hidden="true"></span><strong>{{ summary.submitted }}</strong><small>Submitted<br>(With Report)</small></div>
+      <div class="query-summary-card orange"><span aria-hidden="true"></span><strong>{{ summary.pending }}</strong><small>Pending /<br>No Report</small></div>
+      <div class="query-summary-card purple"><span aria-hidden="true"></span><strong>{{ summary.intensity }}</strong><small>With Intensity<br>Report</small></div>
+    </div>
+    <p class="event-query-note">Counts are based on the current filter.</p>
+  </article>
+</section>
+
+<section class="dashboard-card event-query-table-card">
+  <header class="panel-title">
+    <div><span class="panel-icon">i</span>Actionable PQR Reports <span class="station-count-pill">{{ report_count }} actionable PQR</span></div>
+    <div class="event-query-actions-inline">
+      <button type="button" class="outline-button" id="copy-actionable-pqr">Copy Space Format</button>
+      <button type="button" class="outline-button" id="copy-intensity-pqr">Copy Intensity Report</button>
+      <a class="outline-button" href="/events/query/export.csv?recent_event_key={{ filters.recent_event_key }}&manual_event_key={{ filters.manual_event_key }}&station_search={{ filters.station_search }}&report_category={{ filters.report_category }}&station_cluster={{ filters.station_cluster }}">Export CSV</a>
+      <button type="button" class="outline-button" onclick="window.print()">Print</button>
+    </div>
+  </header>
+  <p class="event-query-copy-note" id="event-query-copy-note">Copy Space Format copies only Station, P-arrival, S-arrival, and Duration. Use Copy Intensity Report for observed, instrumental, and verified areas.</p>
+  <div class="event-query-table-wrap">
+    <table class="portal-table event-query-table" id="actionable-pqr-table">
+      <thead>
+        <tr>
+          <th rowspan="2" class="eq-station-name">Station Name</th>
+          <th rowspan="2" class="eq-arrival">P-Arrival</th>
+          <th rowspan="2" class="eq-arrival">S-Arrival</th>
+          <th rowspan="2" class="eq-duration">Duration</th>
+          <th colspan="3" class="eq-intensities-head">Intensities</th>
+        </tr>
+        <tr>
+          <th class="eq-intensity-col">Observed</th>
+          <th class="eq-intensity-col">Instrumental</th>
+          <th class="eq-verified-col">Verified Areas without<br>Intensities</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr data-copy-row
+            data-station-code="{{ row.station_code }}"
+            data-p-arrival="{{ row.p_arrival_display or '-' }}"
+            data-s-arrival="{{ row.s_arrival_display or '-' }}"
+            data-duration="{{ row.duration_display or '-' }}"
+            data-observed="{{ row.observed_intensities or '' }}"
+            data-instrumental="{{ row.instrumental_intensities or '' }}"
+            data-verified="{{ row.verified_areas_without_intensities or '' }}">
+          <td class="eq-station-name-cell"><strong>{{ row.station_code }}</strong></td>
+          <td>{{ row.p_arrival_display or "-" }}</td>
+          <td>{{ row.s_arrival_display or "-" }}</td>
+          <td>{{ row.duration_display or "-" }}</td>
+          <td>{{ row.observed_intensities or "" }}</td>
+          <td>{{ row.instrumental_intensities or "" }}</td>
+          <td>{{ row.verified_areas_without_intensities or "" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7">No PQR reports with Phase Reading or Intensities remarks for this event.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mobile-card-list event-query-mobile-list">
+    {% for row in rows %}
+    <article class="mobile-data-card">
+      <div class="mobile-card-head">
+        <strong>{{ row.station_code }}</strong>
+        <span>{{ row.remarks }}</span>
+      </div>
+      <div class="mobile-card-stats">
+        <span>P-Arrival <b>{{ row.p_arrival_display or "-" }}</b></span>
+        <span>S-Arrival <b>{{ row.s_arrival_display or "-" }}</b></span>
+        <span>Duration <b>{{ row.duration_display or "-" }}</b></span>
+      </div>
+      {% if row.observed_intensities or row.instrumental_intensities or row.verified_areas_without_intensities %}
+      <dl class="mobile-card-dl">
+        {% if row.observed_intensities %}<div><dt>Observed</dt><dd>{{ row.observed_intensities }}</dd></div>{% endif %}
+        {% if row.instrumental_intensities %}<div><dt>Instrumental</dt><dd>{{ row.instrumental_intensities }}</dd></div>{% endif %}
+        {% if row.verified_areas_without_intensities %}<div><dt>Verified Areas</dt><dd>{{ row.verified_areas_without_intensities }}</dd></div>{% endif %}
+      </dl>
+      {% endif %}
+    </article>
+    {% else %}
+    <article class="mobile-empty-card">No PQR reports with Phase Reading or Intensities remarks for this event.</article>
+    {% endfor %}
+  </div>
+  {% if pagination %}
+  <nav class="pagination-bar" aria-label="Event query pagination">
+    <span>Showing page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total_count }} actionable PQR report(s)</span>
+    <div>
+      {% if pagination.has_prev %}
+      <a class="outline-button" href="/events/query?recent_event_key={{ filters.recent_event_key }}&manual_event_key={{ filters.manual_event_key }}&station_search={{ filters.station_search }}&report_category={{ filters.report_category }}&station_cluster={{ filters.station_cluster }}&page={{ pagination.prev_page }}&per_page={{ pagination.per_page }}">Previous</a>
+      {% endif %}
+      {% if pagination.has_next %}
+      <a class="outline-button" href="/events/query?recent_event_key={{ filters.recent_event_key }}&manual_event_key={{ filters.manual_event_key }}&station_search={{ filters.station_search }}&report_category={{ filters.report_category }}&station_cluster={{ filters.station_cluster }}&page={{ pagination.next_page }}&per_page={{ pagination.per_page }}">Next</a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+</section>
+{% else %}
+<section class="portal-card">
+  <div class="card-title">PQR Event Query</div>
+  <p class="event-query-empty">No earthquake events are available.</p>
+</section>
+{% endif %}
+{% if event %}
+<script>
+  (() => {
+    const table = document.querySelector('#actionable-pqr-table');
+    const copyButton = document.querySelector('#copy-actionable-pqr');
+    const copyIntensityButton = document.querySelector('#copy-intensity-pqr');
+    const copyNote = document.querySelector('#event-query-copy-note');
+    if (!table) return;
+
+    const copyRows = () => Array.from(table.querySelectorAll('tbody tr[data-copy-row]'));
+    const phaseLineFromRow = row => {
+      const station = (row.dataset.stationCode || '').trim();
+      const firstGap = station.length === 3 ? '   ' : '  ';
+      const pArrival = (row.dataset.pArrival || '-').trim() || '-';
+      const sArrival = (row.dataset.sArrival || '-').trim() || '-';
+      const duration = (row.dataset.duration || '-').trim() || '-';
+      return `${station}${firstGap}${pArrival}  ${sArrival}  ${duration}`;
+    };
+
+    const intensityLineFromRow = row => {
+      const station = (row.dataset.stationCode || '').trim();
+      const observed = (row.dataset.observed || '').trim() || '-';
+      const instrumental = (row.dataset.instrumental || '').trim() || '-';
+      const verified = (row.dataset.verified || '').trim() || '-';
+      return `${station}  ${observed}  ${instrumental}  ${verified}`;
+    };
+
+    const selectionIntersects = row => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+      for (let index = 0; index < selection.rangeCount; index += 1) {
+        const range = selection.getRangeAt(index);
+        try {
+          if (range.intersectsNode(row)) return true;
+        } catch (error) {
+          if (row.contains(range.commonAncestorContainer)) return true;
+        }
+      }
+      return false;
+    };
+
+    const selectedCopyRows = () => {
+      const rows = copyRows();
+      const selectedRows = rows.filter(selectionIntersects);
+      return selectedRows.length ? selectedRows : rows;
+    };
+
+    const phaseTextForRows = rows => rows.map(phaseLineFromRow).join('\n');
+    const intensityTextForRows = rows => rows
+      .filter(row => (
+        (row.dataset.observed || '').trim()
+        || (row.dataset.instrumental || '').trim()
+        || (row.dataset.verified || '').trim()
+      ))
+      .map(intensityLineFromRow)
+      .join('\n');
+
+    const writeClipboard = async text => {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+    };
+
+    if (copyButton) {
+      copyButton.addEventListener('click', async () => {
+        const text = phaseTextForRows(copyRows());
+        if (!text) return;
+        await writeClipboard(text);
+        if (copyNote) {
+          copyNote.textContent = `Copied ${copyRows().length} row(s): Station, P-arrival, S-arrival, Duration.`;
+          window.setTimeout(() => {
+            copyNote.textContent = 'Copy Space Format copies only Station, P-arrival, S-arrival, and Duration. Use Copy Intensity Report for observed, instrumental, and verified areas.';
+          }, 3000);
+        }
+      });
+    }
+
+    if (copyIntensityButton) {
+      copyIntensityButton.addEventListener('click', async () => {
+        const rows = copyRows();
+        const text = intensityTextForRows(rows);
+        if (!text) {
+          if (copyNote) copyNote.textContent = 'No intensity report data available to copy.';
+          return;
+        }
+        await writeClipboard(text);
+        if (copyNote) {
+          const copiedCount = text.split('\n').filter(Boolean).length;
+          copyNote.textContent = `Copied ${copiedCount} intensity row(s): Station, Observed, Instrumental, Verified Areas.`;
+          window.setTimeout(() => {
+            copyNote.textContent = 'Copy Space Format copies only Station, P-arrival, S-arrival, and Duration. Use Copy Intensity Report for observed, instrumental, and verified areas.';
+          }, 3000);
+        }
+      });
+    }
+
+    table.addEventListener('copy', event => {
+      const rows = selectedCopyRows();
+      if (!rows.length || !event.clipboardData) return;
+      event.preventDefault();
+      event.clipboardData.setData('text/plain', phaseTextForRows(rows));
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

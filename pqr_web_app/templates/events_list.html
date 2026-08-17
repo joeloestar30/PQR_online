@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <h1>Events List</h1>
+  <p>Local PHIVOLCS events within the active {{ window_hours }}-hour window. The background worker syncs automatically; use the button for an immediate refresh.</p>
+  <form method="post" action="/events/sync" class="page-head-action">
+    <a class="outline-button" href="/events/import-phivolcs">Import 2026 Archive</a>
+    <button type="submit" class="primary-action">Sync PHIVOLCS Now</button>
+  </form>
+</section>
+
+{% if last_sync %}
+<section class="messages">
+  <div>
+    Last PHIVOLCS sync: {{ last_sync.status }} at {{ last_sync.finished_at or last_sync.started_at }}
+    {% if last_sync.imported_count %} · {{ last_sync.imported_count }} new event(s){% endif %}
+    {% if last_sync.error_message %} · {{ last_sync.error_message }}{% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="portal-card">
+  <div class="card-title">Open Earthquake Events</div>
+  <div class="event-table-wrap">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Event Key (UTC)</th>
+          <th>Felt</th>
+          <th>PST Date-Time</th>
+          <th>Region</th>
+          <th>Magnitude</th>
+          <th>Depth</th>
+          <th>Latitude</th>
+          <th>Longitude</th>
+          <th>Location</th>
+          <th>Required</th>
+          <th>Submitted</th>
+          <th>Pending</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr id="event-{{ event.id }}" class="event-anchor-target">
+          <td class="linkish">
+            {{ event.event_key }}
+            {% if event.is_excluded_from_pqr_rating %}
+            <span class="rating-excluded-pill">Excluded</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if event.is_felt %}
+            <span class="felt-pill yes">Yes</span>
+            {% else %}
+            <span class="felt-pill no">No</span>
+            {% endif %}
+          </td>
+          <td>{{ event.event_datetime_pst }}</td>
+          <td>{{ event.region_code }}</td>
+          <td>M{{ event.magnitude or "" }}</td>
+          <td>{{ event.depth_km or "" }}</td>
+          <td>{{ event.latitude or "" }}</td>
+          <td>{{ event.longitude or "" }}</td>
+          <td>{{ event.reference_location }}</td>
+          <td>{{ event.required_count or 0 }}</td>
+          <td>{{ event.submitted_count or 0 }}</td>
+          <td>{{ event.pending_count or 0 }}</td>
+          <td>
+            {% if event.merge_candidates %}
+            <div class="event-row-actions">
+              {% for candidate in event.merge_candidates %}
+              <a class="outline-button mini-action {{ '' if candidate.safe else 'needs-review' }}" href="/events/{{ event.id }}/merge-pqr/{{ candidate.target_id }}?return_url={{ (request.full_path ~ '#event-' ~ event.id)|urlencode }}" data-preserve-scroll>
+                {{ "Merge PQR" if candidate.safe else "Review PQR Merge" }} to Event {{ candidate.direction|title }}
+              </a>
+              {% endfor %}
+              <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" data-preserve-scroll onsubmit="return confirm('Exclude this imported event from PQR rating? It will stay visible for audit but will not affect station rating.');">
+                <input type="hidden" name="return_url" value="{{ request.full_path }}#event-{{ event.id }}">
+                <input type="hidden" name="excluded" value="1">
+                <input type="hidden" name="reason" value="Unmatched imported Google Sheet placeholder">
+                <button type="submit" class="outline-button mini-action warning-action">Exclude from Rating</button>
+              </form>
+            </div>
+            {% elif event.is_excluded_from_pqr_rating %}
+            <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" data-preserve-scroll onsubmit="return confirm('Include this event in PQR rating again?');">
+              <input type="hidden" name="return_url" value="{{ request.full_path }}#event-{{ event.id }}">
+              <input type="hidden" name="excluded" value="0">
+              <button type="submit" class="outline-button mini-action">Include in Rating</button>
+            </form>
+            {% elif event.can_exclude_from_pqr_rating %}
+            <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" data-preserve-scroll onsubmit="return confirm('Exclude this imported event from PQR rating? It will stay visible for audit but will not affect station rating.');">
+              <input type="hidden" name="return_url" value="{{ request.full_path }}#event-{{ event.id }}">
+              <input type="hidden" name="excluded" value="1">
+              <input type="hidden" name="reason" value="Unmatched imported Google Sheet placeholder">
+              <button type="submit" class="outline-button mini-action warning-action">Exclude from Rating</button>
+            </form>
+            {% elif event.is_import_placeholder %}
+            <span class="muted-table-note">No nearby event</span>
+            {% else %}
+            <span class="muted-table-note">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="13">No open PHIVOLCS events within {{ window_hours }} hours.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mobile-card-list">
+    {% for event in events %}
+    <article id="mobile-event-{{ event.id }}" class="mobile-data-card event-anchor-target">
+      <div class="mobile-card-head">
+        <strong>{{ event.event_key }}</strong>
+        <span>{% if event.is_excluded_from_pqr_rating %}Excluded{% else %}M{{ event.magnitude or "-" }}{% endif %}</span>
+      </div>
+      <div class="mobile-card-meta">
+        <span>{{ event.event_datetime_pst }}</span>
+        <span>{{ event.region_code }}</span>
+      </div>
+      <p>{{ event.reference_location }}</p>
+      <div class="mobile-card-stats">
+        <span>Felt <b>{{ "Yes" if event.is_felt else "No" }}</b></span>
+        <span>Required <b>{{ event.required_count or 0 }}</b></span>
+        <span>Submitted <b>{{ event.submitted_count or 0 }}</b></span>
+        <span>Pending <b>{{ event.pending_count or 0 }}</b></span>
+      </div>
+      {% if event.merge_candidates %}
+      <div class="mobile-card-actions">
+        {% for candidate in event.merge_candidates %}
+        <a class="outline-button mobile-card-action" href="/events/{{ event.id }}/merge-pqr/{{ candidate.target_id }}?return_url={{ (request.full_path ~ '#mobile-event-' ~ event.id)|urlencode }}" data-preserve-scroll>{{ "Merge PQR" if candidate.safe else "Review PQR Merge" }} to Event {{ candidate.direction|title }}</a>
+        {% endfor %}
+      </div>
+      {% elif event.can_exclude_from_pqr_rating %}
+      <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" class="mobile-card-actions" data-preserve-scroll onsubmit="return confirm('Exclude this imported event from PQR rating?');">
+        <input type="hidden" name="return_url" value="{{ request.full_path }}#mobile-event-{{ event.id }}">
+        <input type="hidden" name="excluded" value="1">
+        <input type="hidden" name="reason" value="Unmatched imported Google Sheet placeholder">
+        <button type="submit" class="outline-button mobile-card-action">Exclude from Rating</button>
+      </form>
+      {% elif event.is_excluded_from_pqr_rating %}
+      <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" class="mobile-card-actions" data-preserve-scroll onsubmit="return confirm('Include this event in PQR rating again?');">
+        <input type="hidden" name="return_url" value="{{ request.full_path }}#mobile-event-{{ event.id }}">
+        <input type="hidden" name="excluded" value="0">
+        <button type="submit" class="outline-button mobile-card-action">Include in Rating</button>
+      </form>
+      {% endif %}
+    </article>
+    {% else %}
+    <article class="mobile-empty-card">No open PHIVOLCS events within {{ window_hours }} hours.</article>
+    {% endfor %}
+  </div>
+  {% if pagination %}
+  <nav class="pagination-bar" aria-label="Events pagination">
+    <span>Showing page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total_count }} event(s)</span>
+    <div>
+      {% if pagination.has_prev %}
+      <a class="outline-button" href="/events/list?page={{ pagination.prev_page }}&per_page={{ pagination.per_page }}">Previous</a>
+      {% endif %}
+      {% if pagination.has_next %}
+      <a class="outline-button" href="/events/list?page={{ pagination.next_page }}&per_page={{ pagination.per_page }}">Next</a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+</section>
+{% endblock %}

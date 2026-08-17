@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>{{ message.title }}</h1>
+    <p>{{ message.category_label }} communication thread.</p>
+  </div>
+  <a class="outline-button page-head-action" href="/messages">Back to Messages</a>
+</section>
+
+<article class="message-item priority-{{ message.priority }} message-thread-lead">
+  <header>
+    <div>
+      <span class="message-priority">{{ message.priority_label }}</span>
+      <span class="message-category">{{ message.category_label }}</span>
+      {% if message.target_station_code %}
+      <span class="message-station">{{ message.target_station_code }}</span>
+      {% endif %}
+    </div>
+    <time>{{ message.created_label }}</time>
+  </header>
+  <div class="message-copy">
+    <p>{{ message.body }}</p>
+    {% if message.action_url %}
+    <p class="message-thread-link"><a class="outline-button" href="{{ message.action_url }}">Open Related Page</a></p>
+    {% endif %}
+    <dl class="message-thread-meta">
+      <div>
+        <dt>From</dt>
+        <dd>{{ message.created_by_name or "System" }}</dd>
+      </div>
+      <div>
+        <dt>Target</dt>
+        <dd>
+          {% if message.target_user_id %}Specific user
+          {% elif message.target_station_code %}{{ message.target_station_code }} - {{ message.target_station_name }}
+          {% elif message.target_role %}{{ message.target_role.replace("_", " ").title() }}
+          {% else %}All users{% endif %}
+        </dd>
+      </div>
+    </dl>
+  </div>
+</article>
+
+<section class="portal-card message-thread-card">
+  <div class="card-title">Replies</div>
+  <div class="message-reply-list">
+    {% if replies %}
+      {% for reply in replies %}
+      <article class="message-reply">
+        <header>
+          <strong>{{ reply.display_name }}</strong>
+          <span>{{ reply.role.replace("_", " ").title() }}{% if reply.station_code %} - {{ reply.station_code }}{% endif %}</span>
+          <time>{{ reply.created_label }}</time>
+        </header>
+        <p>{{ reply.body }}</p>
+      </article>
+      {% endfor %}
+    {% else %}
+    <div class="message-reply-empty">No replies yet.</div>
+    {% endif %}
+  </div>
+  <form method="post" class="message-reply-form">
+    <label>Reply
+      <textarea name="body" rows="4" required></textarea>
+    </label>
+    <div>
+      <button type="submit" class="primary-action">Send Reply</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

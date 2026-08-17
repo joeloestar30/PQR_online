@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Station Management</h1>
+    <p>Create, edit, deactivate, and organize stations by cluster.</p>
+  </div>
+  <a href="/admin/stations/new" class="primary-action page-head-action">Add Station</a>
+</section>
+
+<section class="portal-card">
+  <form class="filter-row" method="get" action="/admin/stations">
+    <input name="search" value="{{ search }}" placeholder="Station code or name">
+    <select name="cluster">
+      <option value="">All Clusters</option>
+      {% for cluster_name in station_clusters %}
+      <option value="{{ cluster_name }}" {% if cluster == cluster_name %}selected{% endif %}>{{ cluster_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status">
+      <option value="">All Status</option>
+      <option value="active" {% if status == "active" %}selected{% endif %}>Active</option>
+      <option value="inactive" {% if status == "inactive" %}selected{% endif %}>Inactive</option>
+    </select>
+    <button type="submit" class="primary-action">Filter</button>
+    <a href="/admin/stations" class="outline-button">Clear</a>
+  </form>
+  <div class="event-table-wrap">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Station Code</th>
+          <th>Station Name</th>
+          <th>Cluster</th>
+          <th>Region</th>
+          <th>Type</th>
+          <th>PQR Compliance</th>
+          <th>Status</th>
+          <th>Users</th>
+          <th>Active</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for station in stations %}
+        <tr>
+          <td class="linkish">{{ station.station_code }}</td>
+          <td>{{ station.station_name }}</td>
+          <td>{{ station.cluster_name or "-" }}</td>
+          <td>{{ station.region_code }}</td>
+          <td>{{ station.station_type or "SCSS" }}</td>
+          <td>{{ "Yes" if station.include_in_pqr_compliance else "No" }}</td>
+          <td>{{ station.station_status or "Regular Station" }}</td>
+          <td>{{ station.assigned_user_count or 0 }}</td>
+          <td>{{ "Yes" if station.is_active else "No" }}</td>
+          <td>
+            <div class="table-actions">
+              <a class="outline-button" href="/admin/stations/{{ station.id }}/edit">Edit</a>
+              <form method="post" action="/admin/stations/{{ station.id }}/toggle-active">
+                <button type="submit" class="outline-button">{{ "Deactivate" if station.is_active else "Activate" }}</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10">No stations found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="mobile-card-list">
+    {% for station in stations %}
+    <article class="mobile-data-card">
+      <div class="mobile-card-head">
+        <strong>{{ station.station_code }}</strong>
+        <span>{{ "Active" if station.is_active else "Inactive" }}</span>
+      </div>
+      <p>{{ station.station_name }}</p>
+      <div class="mobile-card-stats">
+        <span>Cluster <b>{{ station.cluster_name or "-" }}</b></span>
+        <span>Region <b>{{ station.region_code }}</b></span>
+        <span>Type <b>{{ station.station_type or "SCSS" }}</b></span>
+        <span>PQR <b>{{ "Yes" if station.include_in_pqr_compliance else "No" }}</b></span>
+        <span>Status <b>{{ station.station_status or "Regular" }}</b></span>
+        <span>Users <b>{{ station.assigned_user_count or 0 }}</b></span>
+      </div>
+      <a class="outline-button mobile-card-action" href="/admin/stations/{{ station.id }}/edit">Edit Station</a>
+    </article>
+    {% else %}
+    <article class="mobile-empty-card">No stations found.</article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

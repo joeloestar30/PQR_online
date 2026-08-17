@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-head"><h1>PQR Reports</h1></section>
+<form method="get" class="filters">
+  <input name="event_key" placeholder="Event key" value="{{ event_key }}">
+  <input name="station" placeholder="Station" value="{{ station }}">
+  <button type="submit">Search</button>
+</form>
+<section class="data-section">
+  <table>
+    <thead>
+      <tr><th>Event</th><th>UTC Time</th><th>Magnitude</th><th>Location</th><th>Station</th><th>Officer</th><th>Remarks</th><th>Submitted</th><th>Updated</th><th>Sheet Sync</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for row in reports %}
+      <tr>
+        <td>{{ row.event_key }}</td><td>{{ row.event_datetime_utc }}</td><td>{{ row.magnitude or "" }}</td>
+        <td>{{ row.reference_location }}</td><td>{{ row.station_code }} · {{ row.station_name }}</td>
+        <td>{{ row.officer_initials }}</td><td>{{ row.remarks }}</td><td>{{ row.submitted_at }}</td><td>{{ row.updated_at or "" }}</td><td>{{ row.sheet_sync_status }}</td>
+        <td>{% if can(current_user, "update") %}<a href="/pqr/edit/{{ row.id }}">Update</a>{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11">No reports found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="mobile-card-list">
+    {% for row in reports %}
+    <article class="mobile-data-card">
+      <div class="mobile-card-head">
+        <strong>{{ row.event_key }}</strong>
+        <span>{{ row.sheet_sync_status }}</span>
+      </div>
+      <div class="mobile-card-meta">
+        <span>M{{ row.magnitude or "-" }}</span>
+        <span>{{ row.station_code }}</span>
+      </div>
+      <p>{{ row.reference_location }}</p>
+      <dl class="mobile-card-dl">
+        <div><dt>Remarks</dt><dd>{{ row.remarks or "-" }}</dd></div>
+        <div><dt>Officer</dt><dd>{{ row.officer_initials or "-" }}</dd></div>
+        <div><dt>Submitted</dt><dd>{{ row.submitted_at or "-" }}</dd></div>
+      </dl>
+      {% if can(current_user, "update") %}
+      <a class="outline-button mobile-card-action" href="/pqr/edit/{{ row.id }}">View / Update</a>
+      {% endif %}
+    </article>
+    {% else %}
+    <article class="mobile-empty-card">No reports found.</article>
+    {% endfor %}
+  </div>
+  {% if pagination %}
+  <nav class="pagination-bar" aria-label="PQR reports pagination">
+    <span>Showing page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total_count }} report(s)</span>
+    <div>
+      {% if pagination.has_prev %}
+      <a class="outline-button" href="/pqr/list?event_key={{ event_key }}&station={{ station }}&page={{ pagination.prev_page }}&per_page={{ pagination.per_page }}">Previous</a>
+      {% endif %}
+      {% if pagination.has_next %}
+      <a class="outline-button" href="/pqr/list?event_key={{ event_key }}&station={{ station }}&page={{ pagination.next_page }}&per_page={{ pagination.per_page }}">Next</a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+</section>
+{% endblock %}

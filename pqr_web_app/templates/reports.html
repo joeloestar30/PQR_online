@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <h1>Reports</h1>
+  <p>Select the report type before downloading, or import historical PQR data from a CSV file.</p>
+</section>
+
+<section class="report-kpi-grid">
+  <article class="kpi-card kpi-blue">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>PQR Reports</span><strong>{{ stats.pqr_count }}</strong><small>Total records in database</small></div>
+  </article>
+  <article class="kpi-card kpi-green">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Earthquake Events</span><strong>{{ stats.event_count }}</strong><small>Imported and manual events</small></div>
+  </article>
+  <article class="kpi-card kpi-orange">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Google Sync</span><strong>{{ stats.pending_sync }}</strong><small>{{ stats.failed_sync }} failed sync item(s)</small></div>
+  </article>
+</section>
+
+<section class="reports-grid">
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Export PQR Reports</div>
+    <p class="report-card-copy">Download submitted PQR data with phase readings, remarks, intensities, submitted time, and update time.</p>
+    <form class="report-filter-form" method="get" action="/export/pqr.csv">
+      <label>Event Date From (UTC)
+        <input type="date" name="date_from" value="{{ filters.date_from }}">
+      </label>
+      <label>Event Date To (UTC)
+        <input type="date" name="date_to" value="{{ filters.date_to }}">
+      </label>
+      <label>Station
+        <input name="station" value="{{ filters.station }}" placeholder="Station code or name">
+      </label>
+      <label>Event Key
+        <input name="event_key" value="{{ filters.event_key }}" placeholder="Event key">
+      </label>
+      <button type="submit" class="primary-action">Download PQR CSV</button>
+    </form>
+  </article>
+
+  <article class="portal-card report-tool-card">
+    <div class="card-title">PQR Monitoring Report</div>
+    <p class="report-card-copy">Preview and export quarterly or semi-annual SCSS compliance reports with monthly percentages and signature blocks.</p>
+    <form class="report-filter-form" method="get" action="/reports/pqr-monitoring">
+      <label>Report Period
+        <select name="period_type">
+          <option value="quarter">Quarterly</option>
+          <option value="semester">Semi-annual</option>
+        </select>
+      </label>
+      <label>Year
+        <input type="number" name="year" min="2000" max="2100" value="{{ current_year or 2026 }}">
+      </label>
+      <label>Quarter / Semester
+        <select name="period">
+          <option value="1">1st Quarter / 1st Semester</option>
+          <option value="2">2nd Quarter / 2nd Semester</option>
+          <option value="3">3rd Quarter</option>
+          <option value="4">4th Quarter</option>
+        </select>
+      </label>
+      <button type="submit" class="primary-action">Preview Monitoring Report</button>
+    </form>
+  </article>
+
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Other Report Views</div>
+    <div class="report-link-list">
+      <a class="report-link-row" href="/stations/status">
+        <strong>Station Compliance Report</strong>
+        <span>Monthly station matrix with all-event and felt-event compliance.</span>
+      </a>
+      <a class="report-link-row" href="/events/query">
+        <strong>Event Query Report</strong>
+        <span>Actionable PQR reports for a selected earthquake event.</span>
+      </a>
+      <a class="report-link-row" href="/reports/user-analytics">
+        <strong>User Analytics</strong>
+        <span>Compare user and station completion, response speed, late reports, and missing submissions.</span>
+      </a>
+      <a class="report-link-row" href="/events/import-phivolcs">
+        <strong>PHIVOLCS Archive Import</strong>
+        <span>Scan earlier 2026 monthly archive events and import selected new records.</span>
+      </a>
+      <a class="report-link-row" href="/pqr/list">
+        <strong>PQR Report Browser</strong>
+        <span>Search, review, and update individual PQR reports.</span>
+      </a>
+    </div>
+  </article>
+
+  <article class="portal-card report-tool-card report-import-card">
+    <div class="card-title">Import PQR Data</div>
+    <p class="report-card-copy">Import PQR rows that were entered outside this app. Existing event-and-station reports and app-submitted Sheet rows are skipped.</p>
+    <div class="report-import-status">
+      <strong>Automatic Google Sheets Import</strong>
+      {% if last_google_import %}
+        <span class="sync-status {{ last_google_import.status }}">{{ last_google_import.status.replace("_", " ").title() }}</span>
+        <span>Last run: {{ last_google_import.started_at }}{% if last_google_import.finished_at %} - {{ last_google_import.finished_at }}{% endif %}</span>
+        <span>{{ last_google_import.summary or (last_google_import.imported_count ~ " imported, " ~ last_google_import.skipped_count ~ " skipped, " ~ last_google_import.invalid_count ~ " invalid.") }}</span>
+        {% if invalid_import_counts.get("pending", 0) %}
+        <a class="report-inline-link" href="/reports/import-invalid">{{ invalid_import_counts.get("pending", 0) }} invalid row(s) pending review</a>
+        {% endif %}
+        {% if last_google_import.error_message %}
+        <span class="sync-error">{{ last_google_import.error_message }}</span>
+        {% endif %}
+      {% else %}
+        <span class="sync-status pending">Waiting For First Run</span>
+        <span>The background worker will import new Google Sheet rows automatically when it is running.</span>
+      {% endif %}
+    </div>
+    <form class="report-import-form" method="post" action="/reports/import-pqr-gsheet" onsubmit="return confirm('Import PQR rows directly from the configured Google Sheet? App-submitted rows with Report ID will be skipped.');">
+      <button type="submit" class="primary-action">Manual Import Now</button>
+    </form>
+    <form class="report-import-form" method="post" action="/reports/import-pqr" enctype="multipart/form-data">
+      <label>CSV File
+        <input type="file" name="pqr_csv" accept=".csv,text/csv" required>
+      </label>
+      <button type="submit" class="primary-action">Import PQR CSV</button>
+    </form>
+    <div class="report-import-note">
+      <strong>Required CSV columns</strong>
+      <span>Name, Station officers Initial, Event Time (UTC), Remarks. Google Sheets import reads the configured Data tab and never queues imported rows for Sheet sync.</span>
+      <a class="report-inline-link" href="/reports/import-invalid">Review invalid Google Sheet rows</a>
+    </div>
+  </article>
+
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Recent PQR Records</div>
+    <div class="report-recent-list">
+      {% for row in recent_exports %}
+      <div>
+        <strong>{{ row.event_key }} · {{ row.station_code }}</strong>
+        <span>{{ row.remarks or "-" }} · {{ row.sheet_sync_status }} · {{ row.submitted_at or "-" }}</span>
+      </div>
+      {% else %}
+      <div><span>No PQR reports available yet.</span></div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}

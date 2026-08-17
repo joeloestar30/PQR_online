@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Invalid PQR Review</h1>
+    <p>Review Google Sheet rows that were skipped because required PQR fields were missing or invalid.</p>
+  </div>
+  <a class="outline-button" href="/reports">Back to Reports</a>
+</section>
+
+<section class="report-kpi-grid invalid-import-kpis">
+  <article class="kpi-card kpi-orange">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Pending Review</span><strong>{{ counts.get("pending", 0) }}</strong><small>Rows needing correction</small></div>
+  </article>
+  <article class="kpi-card kpi-green">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Resolved</span><strong>{{ counts.get("resolved", 0) }}</strong><small>Submitted to database</small></div>
+  </article>
+  <article class="kpi-card kpi-red">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Ignored</span><strong>{{ counts.get("ignored", 0) }}</strong><small>Not imported</small></div>
+  </article>
+</section>
+
+<section class="portal-card invalid-problem-summary-card">
+  <div class="card-title">Problem Summary</div>
+  <div class="invalid-problem-summary">
+    {% for problem in problem_counts %}
+    <article>
+      <strong>{{ problem.count }}</strong>
+      <span>{{ problem.problem }}</span>
+      <small>{{ problem.suggested_fix }}</small>
+    </article>
+    {% else %}
+    <article>
+      <strong>0</strong>
+      <span>No problems found</span>
+      <small>There are no invalid rows for this status.</small>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="portal-card invalid-import-card">
+  <div class="card-title">Google Sheet Invalid Rows</div>
+  <div class="invalid-import-toolbar">
+    <nav class="invalid-import-tabs" aria-label="Invalid row status">
+      {% for item in ["pending", "resolved", "ignored", "all"] %}
+      <a class="{% if status == item %}active{% endif %}" href="/reports/import-invalid?status={{ item }}">{{ item.title() }}</a>
+      {% endfor %}
+    </nav>
+    <div class="invalid-import-toolbar-actions">
+      {% if counts.get("pending", 0) %}
+      <form method="post" action="/reports/import-invalid/accept-missing-officer" onsubmit="return confirm('Accept all pending rows where the only problem is Missing station officer initials?');">
+        <button type="submit" class="primary-action">Accept Missing Officer Rows</button>
+      </form>
+      {% endif %}
+      <a class="outline-button" href="/reports/import-invalid.csv?status={{ status }}">Export CSV</a>
+    </div>
+  </div>
+  <p class="invalid-import-rule-note">
+    Rows are accepted only when the only problem is <strong>Missing station officer initials</strong>. Rows with multiple problems stay invalid.
+  </p>
+
+  <div class="table-scroll">
+    <table class="portal-table invalid-import-table">
+      <thead>
+        <tr>
+          <th>Sheet Row</th>
+          <th>Station</th>
+          <th>Officer</th>
+          <th>Event Time UTC</th>
+          <th>Remarks</th>
+          <th>Problem</th>
+          <th>Suggested Fix</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.sheet_row_number or "-" }}</td>
+          <td>{{ row.station_code or "-" }}</td>
+          <td>{{ row.officer_initials or "-" }}</td>
+          <td>{{ row.event_key or "-" }}</td>
+          <td>{{ row.remarks or "-" }}</td>
+          <td>
+            <div class="invalid-problem-list">
+              {% for problem in row.problem_items %}
+              <span>{{ problem }}</span>
+              {% endfor %}
+            </div>
+          </td>
+          <td>{{ row.suggested_fix }}</td>
+          <td><span class="sync-status {{ row.status }}">{{ row.status.title() }}</span></td>
+          <td class="invalid-import-actions">
+            {% if row.status == "pending" %}
+            <a class="outline-button" href="/reports/import-invalid/{{ row.id }}/edit">Edit & Submit</a>
+            <form method="post" action="/reports/import-invalid/{{ row.id }}/ignore" onsubmit="return confirm('Ignore this invalid Google Sheet row?');">
+              <input type="hidden" name="ignore_reason" value="Reviewed and ignored from Invalid PQR Review">
+              <button type="submit" class="outline-button">Ignore</button>
+            </form>
+            {% elif row.status == "resolved" %}
+            <a class="outline-button" href="/pqr/edit/{{ row.resolved_report_id }}">View Report</a>
+            {% else %}
+            <span>{{ row.ignore_reason or "Ignored" }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9">No invalid Google Sheet rows found for this status.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

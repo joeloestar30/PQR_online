@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>New Message</h1>
+    <p>Publish an announcement or operational notice to users, roles, or stations.</p>
+  </div>
+  <a class="outline-button page-head-action" href="/messages">Back to Messages</a>
+</section>
+
+<form method="post" class="portal-card admin-message-form">
+  <div class="message-form-grid">
+    <label>Title
+      <input name="title" maxlength="140" required>
+    </label>
+    <label>Category
+      <select name="category">
+        {% for key, label in categories.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Priority
+      <select name="priority">
+        {% for key, label in priorities.items() %}
+        <option value="{{ key }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Target Role
+      <select name="target_role">
+        <option value="">All roles</option>
+        {% for role in roles %}
+        <option value="{{ role }}">{{ role.replace("_", " ").title() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Target User
+      <select name="target_user_id">
+        <option value="">Any user</option>
+        {% for user in users %}
+        <option value="{{ user.id }}">{{ user.display_name }} ({{ user.username }}, {{ user.role.replace("_", " ").title() }}){% if user.station_code %} - {{ user.station_code }}{% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Target Station
+      <select name="target_station_id">
+        <option value="">Any station</option>
+        {% for station in stations %}
+        <option value="{{ station.id }}">{{ station.station_code }} - {{ station.station_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="message-form-wide">Action URL
+      <input name="action_url" placeholder="/pqr/new, /stations/status, /reports">
+    </label>
+    <label class="message-form-wide">Message
+      <textarea name="body" rows="7" required></textarea>
+    </label>
+  </div>
+  <div class="message-form-actions">
+    <a class="outline-button" href="/messages">Cancel</a>
+    <button type="submit" class="primary-action">Publish Message</button>
+  </div>
+</form>
+{% endblock %}

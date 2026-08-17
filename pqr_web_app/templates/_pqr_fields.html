@@ -1,0 +1,39 @@
+<label>P-Polarity
+  <select name="p_polarity">
+    {% set current_p = report.p_polarity if report else '' %}
+    {% for option in ["iPd", "iPc", "iP", "ePd", "ePc", "eP"] %}
+      <option value="{{ option }}" {% if option == current_p %}selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>P-Arrival <input name="p_arrival" value="{{ report.p_arrival if report else '' }}"></label>
+<label>S
+  <select name="s_marker">
+    {% set current_s = report.s_marker if report else '' %}
+    {% for option in ["eS", "iS"] %}
+      <option value="{{ option }}" {% if option == current_s %}selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>S-Arrival <input name="s_arrival" value="{{ report.s_arrival if report else '' }}"></label>
+<label>Amplitude <input type="number" step="0.01" name="amplitude" value="{{ report.amplitude if report else '' }}"></label>
+<label>Duration <input type="number" step="0.01" name="duration" value="{{ report.duration if report else '' }}"></label>
+<label>Type
+  <select name="event_type">
+    {% set current_type = report.event_type if report else '' %}
+    {% for option in ["L", "T"] %}
+      <option value="{{ option }}" {% if option == current_type %}selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Remarks
+  <select name="remarks" required>
+    {% set current_remarks = report.remarks if report else '' %}
+    {% for option in ["With Phase Reading", "No Quake Record", "No Data", "No Operation", "Intensities", "No Staff", "On Meeting or Lecture or Other Official Business", "On Fieldwork", "On Leave"] %}
+      <option value="{{ option }}" {% if option == current_remarks %}selected{% endif %}>{{ option }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label class="wide">Observed Intensities <textarea name="observed_intensities">{{ report.observed_intensities if report else '' }}</textarea></label>
+<label class="wide">Instrumental Intensities <textarea name="instrumental_intensities">{{ report.instrumental_intensities if report else '' }}</textarea></label>
+<label class="wide">Verified Areas without Intensities <textarea name="verified_areas_without_intensities">{{ report.verified_areas_without_intensities if report else '' }}</textarea></label>

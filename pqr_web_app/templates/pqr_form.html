@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <h1>PQR Submission</h1>
+  <p>Submit preliminary quake reports for one or multiple earthquake events.</p>
+</section>
+
+<form method="post" action="/pqr/submit" class="submission-workspace">
+  <input type="hidden" name="station_id" id="station-id-field" value="{{ selected_station_id }}">
+
+  <section class="portal-card details-card">
+    <div class="card-title">1. PQR Details for Pending Events</div>
+    <div class="info-strip">Copy rows directly from Excel and paste them into the table below. The data will be mapped to the correct columns.</div>
+
+    <div class="details-meta">
+      <label>Station / Auto-Table:
+        <select id="station-selector" {% if stations|length <= 1 %}disabled{% endif %}>
+          <option value="" data-cluster="" {% if not selected_station_id %}selected{% endif %}></option>
+          {% for station in stations %}
+          <option
+            value="{{ station.id }}"
+            data-cluster="{{ station_cluster_by_id.get(station.id|string, station_cluster_by_code.get(station.station_code, '')) }}"
+            {% if station.id|string == selected_station_id|string %}selected{% endif %}
+          >{{ station.station_code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Station Cluster:
+        <select id="station-cluster-selector" {% if stations|length <= 1 %}disabled{% endif %}>
+          <option value="" {% if not selected_station_cluster %}selected{% endif %}></option>
+          {% for cluster_name, station_codes in station_clusters.items() %}
+          <option value="{{ cluster_name }}" {% if cluster_name == selected_station_cluster %}selected{% endif %}>{{ cluster_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Station Officer Initials <span>*</span>
+        <input name="officer_initials" value="" required>
+      </label>
+      <label>Email Add:
+        <input name="officer_email" type="email" value="{{ current_user.email or current_user.username if current_user else '' }}">
+      </label>
+      <div class="details-meta-field date-range-field">
+        <span class="details-label">Event Date Range:</span>
+        <div class="date-range-inputs">
+          <input id="event-date-from" type="date" value="{{ selected_date_from }}" aria-label="Event date from">
+          <span class="date-range-separator">to</span>
+          <input id="event-date-to" type="date" value="{{ selected_date_to }}" aria-label="Event date to">
+        </div>
+      </div>
+    </div>
+
+    <div class="pqr-detail-table-wrap">
+      <table class="portal-table detail-entry-table" tabindex="0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Event Key (UTC)</th>
+            <th class="p-polarity-col">P-Polarity</th>
+            <th class="narrow-detail-col"></th>
+            <th class="arrival-col">P-Arrival (HHMMSS.SS)</th>
+            <th class="marker-col">S</th>
+            <th class="arrival-col">S-Arrival (HHMMSS.SS)</th>
+            <th>Amplitude</th>
+            <th class="duration-col">Duration (s)</th>
+            <th class="type-col">Type</th>
+            <th class="remarks-col">Remarks</th>
+            <th class="intensity-col">Observed Intensities</th>
+            <th class="intensity-col">Instrumental Intensities</th>
+            <th class="verified-areas-col">Verified Areas without Intensities</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in events %}
+          <tr
+            class="detail-event-row {% if event.is_submitted %}submitted-detail-row{% endif %} {% if (selected_event_id and event.id|string == selected_event_id) or (not selected_event_id and loop.first) %}active-detail-row{% endif %}"
+            data-event-id="{{ event.id }}"
+            data-region="{{ event.region_code }}"
+            data-search="{{ (event.event_key ~ ' ' ~ event.reference_location)|lower }}"
+          >
+            <td>{{ loop.index }}</td>
+            <td class="event-key-cell">{{ event.event_key }}</td>
+            <td class="p-polarity-col"><input name="p_polarity_{{ event.id }}" value="{{ event.p_polarity or '' }}" data-paste-field="p_polarity" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="narrow-detail-col"><input name="reserved_k_{{ event.id }}" value="{{ event.reserved_k or '' }}" data-paste-field="reserved_k" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="arrival-col"><input name="p_arrival_{{ event.id }}" value="{{ event.p_arrival or '' }}" data-paste-field="p_arrival" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="marker-col"><input name="s_marker_{{ event.id }}" value="{{ event.s_marker or '' }}" data-paste-field="s_marker" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="arrival-col"><input name="s_arrival_{{ event.id }}" value="{{ event.s_arrival or '' }}" data-paste-field="s_arrival" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td><input type="number" step="0.01" name="amplitude_{{ event.id }}" value="{{ event.amplitude or '' }}" data-paste-field="amplitude" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="duration-col"><input type="number" step="0.01" name="duration_{{ event.id }}" value="{{ event.duration or '' }}" data-paste-field="duration" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="type-col"><input name="event_type_{{ event.id }}" value="{{ event.event_type or '' }}" data-paste-field="event_type" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="remarks-fill-cell remarks-col">
+              <select name="remarks_{{ event.id }}" data-paste-field="remarks" {% if not event.can_submit_details %}disabled{% endif %}>
+                <option value=""></option>
+                {% for option in ["With Phase Reading", "No Quake Record", "No Data", "No Operation", "Intensities", "No Staff", "On Meeting or Lecture or Other Official Business", "On Fieldwork", "On Leave"] %}
+                <option value="{{ option }}" {% if event.remarks == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+              <span class="remarks-fill-handle" title="Drag to copy remarks"></span>
+            </td>
+            <td class="intensity-col"><input name="observed_intensities_{{ event.id }}" value="{{ event.observed_intensities or '' }}" data-paste-field="observed_intensities" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="intensity-col"><input name="instrumental_intensities_{{ event.id }}" value="{{ event.instrumental_intensities or '' }}" data-paste-field="instrumental_intensities" {% if not event.can_submit_details %}disabled{% endif %}></td>
+            <td class="verified-areas-col"><input name="verified_areas_without_intensities_{{ event.id }}" value="{{ event.verified_areas_without_intensities or '' }}" data-paste-field="verified_areas_without_intensities" {% if not event.can_submit_details %}disabled{% endif %}></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="14">{% if selected_station_id %}No pending events for this station cluster and date range.{% else %}No pending events for this date range.{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-pqr-cards">
+      {% for event in events %}
+      <article
+        class="mobile-pqr-card detail-event-row {% if event.is_submitted %}submitted-detail-row{% endif %} {% if (selected_event_id and event.id|string == selected_event_id) or (not selected_event_id and loop.first) %}active-detail-row{% endif %}"
+        data-event-id="{{ event.id }}"
+        data-region="{{ event.region_code }}"
+        data-search="{{ (event.event_key ~ ' ' ~ event.reference_location)|lower }}"
+      >
+        <div class="mobile-card-head">
+          <strong class="event-key-cell">{{ event.event_key }}</strong>
+          <span>M{{ event.magnitude or "-" }}</span>
+        </div>
+        <div class="mobile-card-meta">
+          <span>{{ event.event_datetime_pst or event.event_datetime_utc }}</span>
+          <span>{{ event.region_code }}</span>
+        </div>
+        <p>{{ event.reference_location }}</p>
+        <div class="mobile-pqr-grid">
+          <label>P-Polarity
+            <input name="p_polarity_{{ event.id }}" value="{{ event.p_polarity or '' }}" data-paste-field="p_polarity" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>K
+            <input name="reserved_k_{{ event.id }}" value="{{ event.reserved_k or '' }}" data-paste-field="reserved_k" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>P-Arrival
+            <input name="p_arrival_{{ event.id }}" value="{{ event.p_arrival or '' }}" data-paste-field="p_arrival" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>S
+            <input name="s_marker_{{ event.id }}" value="{{ event.s_marker or '' }}" data-paste-field="s_marker" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>S-Arrival
+            <input name="s_arrival_{{ event.id }}" value="{{ event.s_arrival or '' }}" data-paste-field="s_arrival" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>Amplitude
+            <input type="number" step="0.01" name="amplitude_{{ event.id }}" value="{{ event.amplitude or '' }}" data-paste-field="amplitude" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>Duration
+            <input type="number" step="0.01" name="duration_{{ event.id }}" value="{{ event.duration or '' }}" data-paste-field="duration" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+          <label>Type
+            <input name="event_type_{{ event.id }}" value="{{ event.event_type or '' }}" data-paste-field="event_type" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+          </label>
+        </div>
+        <label class="mobile-pqr-wide">Remarks
+          <select name="remarks_{{ event.id }}" data-paste-field="remarks" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>
+            <option value=""></option>
+            {% for option in ["With Phase Reading", "No Quake Record", "No Data", "No Operation", "Intensities", "No Staff", "On Meeting or Lecture or Other Official Business", "On Fieldwork", "On Leave"] %}
+            <option value="{{ option }}" {% if event.remarks == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="mobile-pqr-wide">Observed Intensities
+          <textarea name="observed_intensities_{{ event.id }}" data-paste-field="observed_intensities" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>{{ event.observed_intensities or '' }}</textarea>
+        </label>
+        <label class="mobile-pqr-wide">Instrumental Intensities
+          <textarea name="instrumental_intensities_{{ event.id }}" data-paste-field="instrumental_intensities" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>{{ event.instrumental_intensities or '' }}</textarea>
+        </label>
+        <label class="mobile-pqr-wide">Verified Areas without Intensities
+          <textarea name="verified_areas_without_intensities_{{ event.id }}" data-paste-field="verified_areas_without_intensities" data-mobile-pqr-control {% if not event.can_submit_details %}disabled{% endif %}>{{ event.verified_areas_without_intensities or '' }}</textarea>
+        </label>
+      </article>
+      {% else %}
+      <article class="mobile-empty-card">{% if selected_station_id %}No pending events for this station cluster and date range.{% else %}No pending events for this date range.{% endif %}</article>
+      {% endfor %}
+    </div>
+
+    <div class="details-actions">
+      <button type="submit" class="primary-action">Submit Selected PQR(s)</button>
+      <button type="reset" class="outline-button">Clear All</button>
+      <button type="button" class="outline-button save-draft">Save as Draft</button>
+    </div>
+  </section>
+</form>
+
+<section class="portal-card recent-card">
+  <div class="card-title">3. My Recent Submissions</div>
+  <table class="portal-table recent-table">
+    <thead>
+      <tr>
+        <th>Event Key</th>
+        <th>Date / Time (UTC)</th>
+        <th>Magnitude</th>
+        <th>Remarks</th>
+        <th>Date Submitted</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in recent %}
+      <tr>
+        <td class="linkish">{{ row.event_key }}</td>
+        <td>{{ row.event_datetime_utc }}</td>
+        <td>M{{ row.magnitude or "" }}</td>
+        <td>{{ row.remarks }}</td>
+        <td>{{ row.submitted_at }}</td>
+        <td><span class="submitted-pill">Submitted</span></td>
+        <td><a href="/pqr/edit/{{ row.id }}">View / Update</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7">No recent submissions yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  const stationField = document.querySelector('#station-id-field');
+  const stationSelector = document.querySelector('#station-selector');
+  const stationClusterSelector = document.querySelector('#station-cluster-selector');
+  const eventDateFrom = document.querySelector('#event-date-from');
+  const eventDateTo = document.querySelector('#event-date-to');
+  const applyDateRange = document.querySelector('#apply-date-range');
+  const regionFilter = document.querySelector('#region-filter');
+  const eventSearch = document.querySelector('.event-search');
+  const detailTable = document.querySelector('.detail-entry-table');
+  const detailRows = document.querySelectorAll('.detail-event-row');
+  const mobilePqrMedia = window.matchMedia('(max-width: 760px)');
+  let remarksFillValue = null;
+  const pasteFields = [
+    'p_polarity',
+    'reserved_k',
+    'p_arrival',
+    's_marker',
+    's_arrival',
+    'amplitude',
+    'duration',
+    'event_type',
+    'remarks',
+    'observed_intensities',
+    'instrumental_intensities',
+    'verified_areas_without_intensities'
+  ];
+
+  function navigateToStation(stationId) {
+    const url = new URL(window.location.href);
+    url.pathname = '/pqr/new';
+    if (stationId) {
+      url.searchParams.set('station_id', stationId);
+    } else {
+      url.searchParams.delete('station_id');
+    }
+    setDateRangeParams(url);
+    window.location.href = url.toString();
+  }
+
+  function setDateRangeParams(url) {
+    if (eventDateFrom && eventDateFrom.value) {
+      url.searchParams.set('date_from', eventDateFrom.value);
+    } else {
+      url.searchParams.delete('date_from');
+    }
+    if (eventDateTo && eventDateTo.value) {
+      url.searchParams.set('date_to', eventDateTo.value);
+    } else {
+      url.searchParams.delete('date_to');
+    }
+  }
+
+  function applyEventDateRange() {
+    const url = new URL(window.location.href);
+    url.pathname = '/pqr/new';
+    setDateRangeParams(url);
+    if (stationSelector && stationSelector.value) {
+      url.searchParams.set('station_id', stationSelector.value);
+    }
+    window.location.href = url.toString();
+  }
+
+  if (stationSelector) {
+    stationSelector.addEventListener('change', () => {
+      if (stationField) stationField.value = stationSelector.value;
+      navigateToStation(stationSelector.value);
+    });
+  }
+
+  if (stationClusterSelector && stationSelector) {
+    stationClusterSelector.addEventListener('change', () => {
+      if (!stationClusterSelector.value) {
+        stationSelector.value = '';
+        if (stationField) stationField.value = '';
+        navigateToStation('');
+        return;
+      }
+      const matchingStation = Array.from(stationSelector.options).find(
+        option => option.dataset.cluster === stationClusterSelector.value
+      );
+      if (matchingStation) {
+        stationSelector.value = matchingStation.value;
+        if (stationField) stationField.value = matchingStation.value;
+        navigateToStation(matchingStation.value);
+      }
+    });
+  }
+
+  function selectFirstVisibleEvent() {
+    const firstVisibleRow = Array.from(detailRows).find(row => row.style.display !== 'none');
+    if (firstVisibleRow) setActiveEvent(firstVisibleRow.dataset.eventId);
+  }
+
+  function setActiveEvent(eventId) {
+    detailRows.forEach(row => {
+      const isActive = row.dataset.eventId === String(eventId);
+      row.classList.toggle('active-detail-row', isActive);
+    });
+  }
+
+  function applyEventFilters() {
+    const selectedRegion = regionFilter ? regionFilter.value : 'All Regions';
+    const searchText = eventSearch ? eventSearch.value.trim().toLowerCase() : '';
+    detailRows.forEach(row => {
+      const regionMatches = selectedRegion === 'All Regions' || row.dataset.region === selectedRegion;
+      const searchMatches = !searchText || (row.dataset.search || '').includes(searchText);
+      const isVisible = regionMatches && searchMatches;
+      row.style.display = isVisible ? '' : 'none';
+      if (!isVisible) {
+        row.classList.remove('active-detail-row');
+      }
+    });
+    selectFirstVisibleEvent();
+  }
+
+  if (regionFilter) regionFilter.addEventListener('change', applyEventFilters);
+  if (eventSearch) eventSearch.addEventListener('input', applyEventFilters);
+  if (applyDateRange) applyDateRange.addEventListener('click', applyEventDateRange);
+  if (eventDateFrom) eventDateFrom.addEventListener('change', applyEventDateRange);
+  if (eventDateTo) eventDateTo.addEventListener('change', applyEventDateRange);
+
+  const initiallyActiveRow = document.querySelector('.detail-event-row.active-detail-row');
+  if (initiallyActiveRow) {
+    initiallyActiveRow.scrollIntoView({ block: 'center', inline: 'nearest' });
+  }
+
+  function parseExcelClipboard(text) {
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .split('\n')
+      .filter(row => row.trim() !== '')
+      .map(row => row.split('\t').map(cell => cell.trim()));
+  }
+
+  function looksLikeHeader(row) {
+    const headerText = row.join(' ').toLowerCase();
+    return headerText.includes('event key') || headerText.includes('p-polarity') || headerText.includes('p-arrival');
+  }
+
+  function controlForField(row, field) {
+    return row.querySelector(`[data-paste-field="${field}"]`);
+  }
+
+  function setControlValue(control, value) {
+    if (!control || value === undefined) return;
+    const text = String(value).trim();
+    if (control.tagName === 'SELECT') {
+      const matchingOption = Array.from(control.options).find(option =>
+        option.value.toLowerCase() === text.toLowerCase() ||
+        option.textContent.trim().toLowerCase() === text.toLowerCase()
+      );
+      if (matchingOption) control.value = matchingOption.value;
+      return;
+    }
+    control.value = text;
+  }
+
+  function visibleDetailRows() {
+    return Array.from(detailRows).filter(row => row.style.display !== 'none' && row.offsetParent !== null);
+  }
+
+  function findDetailRowByEventKey(eventKey) {
+    return Array.from(detailRows).find(row => {
+      const keyCell = row.querySelector('.event-key-cell');
+      return row.offsetParent !== null && keyCell && keyCell.textContent.trim() === eventKey;
+    });
+  }
+
+  function pasteRowsIntoDetails(text, startControl = document.activeElement) {
+    const parsedRows = parseExcelClipboard(text).filter(row => !looksLikeHeader(row));
+    if (!parsedRows.length) return false;
+
+    const activeRow = document.querySelector('.detail-event-row.active-detail-row') || visibleDetailRows()[0];
+    const focusedRow = startControl ? startControl.closest('.detail-event-row') : null;
+    const startRow = focusedRow || activeRow;
+    const rowPool = visibleDetailRows();
+    let fallbackRowIndex = Math.max(0, rowPool.indexOf(startRow));
+    const startField = startControl ? startControl.dataset.pasteField : '';
+    const defaultFieldIndex = Math.max(0, pasteFields.indexOf(startField));
+
+    parsedRows.forEach(cells => {
+      if (!cells.length) return;
+      const matchedRow = findDetailRowByEventKey(cells[0]);
+      const targetRow = matchedRow || rowPool[fallbackRowIndex];
+      if (!targetRow) return;
+
+      const sourceCells = matchedRow ? cells.slice(1) : cells;
+      const fieldStartIndex = matchedRow ? 0 : defaultFieldIndex;
+      sourceCells.forEach((value, offset) => {
+        const field = pasteFields[fieldStartIndex + offset];
+        if (!field) return;
+        setControlValue(controlForField(targetRow, field), value);
+      });
+
+      if (!matchedRow) fallbackRowIndex += 1;
+    });
+
+    if (startRow && startRow.dataset.eventId) setActiveEvent(startRow.dataset.eventId);
+    return true;
+  }
+
+  function fillRemarksCell(cell) {
+    if (remarksFillValue === null || !cell) return;
+    const row = cell.closest('.detail-event-row');
+    const select = cell.querySelector('[data-paste-field="remarks"]');
+    if (!row || !select || row.style.display === 'none') return;
+    select.value = remarksFillValue;
+    cell.classList.add('fill-target');
+    setActiveEvent(row.dataset.eventId);
+  }
+
+  function clearRemarksFillState() {
+    remarksFillValue = null;
+    document.querySelectorAll('.remarks-fill-cell.fill-target').forEach(cell => {
+      cell.classList.remove('fill-target');
+    });
+  }
+
+  document.querySelectorAll('.remarks-fill-handle').forEach(handle => {
+    handle.addEventListener('mousedown', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const cell = handle.closest('.remarks-fill-cell');
+      const select = cell ? cell.querySelector('[data-paste-field="remarks"]') : null;
+      remarksFillValue = select ? select.value : null;
+      fillRemarksCell(cell);
+    });
+  });
+
+  document.querySelectorAll('.remarks-fill-cell').forEach(cell => {
+    cell.addEventListener('mouseenter', () => {
+      if (remarksFillValue !== null) fillRemarksCell(cell);
+    });
+    const select = cell.querySelector('[data-paste-field="remarks"]');
+    if (select) {
+      select.addEventListener('change', () => {
+        const row = cell.closest('.detail-event-row');
+        if (!row || !select.value) return;
+        setActiveEvent(row.dataset.eventId);
+      });
+    }
+  });
+
+  document.addEventListener('mouseup', clearRemarksFillState);
+
+  if (detailTable) {
+    detailTable.addEventListener('paste', event => {
+      const text = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+      if (!text || (!text.includes('\t') && !text.includes('\n'))) return;
+      event.preventDefault();
+      pasteRowsIntoDetails(text, event.target);
+    });
+  }
+
+  detailRows.forEach(row => {
+    row.addEventListener('click', () => {
+      if (row.style.display === 'none') return;
+      setActiveEvent(row.dataset.eventId);
+    });
+  });
+
+  function rememberOriginalDisabled(control) {
+    if (!control.dataset.originalDisabled) {
+      control.dataset.originalDisabled = control.disabled ? 'true' : 'false';
+    }
+  }
+
+  function togglePqrEntryMode() {
+    const useMobile = mobilePqrMedia.matches;
+    document.querySelectorAll('.pqr-detail-table-wrap [name]').forEach(control => {
+      rememberOriginalDisabled(control);
+      control.disabled = useMobile || control.dataset.originalDisabled === 'true';
+    });
+    document.querySelectorAll('.mobile-pqr-cards [name]').forEach(control => {
+      rememberOriginalDisabled(control);
+      control.disabled = !useMobile || control.dataset.originalDisabled === 'true';
+    });
+  }
+
+  togglePqrEntryMode();
+  if (mobilePqrMedia.addEventListener) {
+    mobilePqrMedia.addEventListener('change', togglePqrEntryMode);
+  } else {
+    mobilePqrMedia.addListener(togglePqrEntryMode);
+  }
+
+  const pqrForm = document.querySelector('.submission-workspace');
+  if (pqrForm) {
+    pqrForm.addEventListener('submit', () => {
+      const submitButton = pqrForm.querySelector('button[type="submit"]');
+      if (!submitButton) return;
+      submitButton.disabled = true;
+      submitButton.dataset.originalText = submitButton.textContent;
+      submitButton.textContent = 'Submitting...';
+    });
+  }
+</script>
+{% endblock %}

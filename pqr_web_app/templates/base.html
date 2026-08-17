@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "PQR System" }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  {% if current_user %}
+  <div class="portal-shell">
+    <div class="mobile-drawer-scrim" data-mobile-menu-close></div>
+    <aside class="sidebar" id="mobile-navigation">
+      <div class="system-brand">
+        <img class="brand-mark" src="{{ url_for('static', filename='img/phivolcs-official-logo.png') }}" alt="PHIVOLCS">
+        <div>
+          <div class="agency">PHIVOLCS</div>
+          <div class="system-name">PQR SYSTEM</div>
+          <div class="system-subtitle">Preliminary Quake Report</div>
+        </div>
+      </div>
+
+      <section class="officer-card">
+        <div class="avatar" aria-hidden="true"></div>
+        <div>
+          <strong>{{ current_user.display_name }}</strong>
+          <span>{{ current_user.role.replace("_", " ").title() }}</span>
+          <span>{{ current_user.username|upper }} · Station Officer</span>
+          <span class="online-dot">Online</span>
+        </div>
+      </section>
+
+      <nav class="side-nav" aria-label="Main menu">
+        <div class="nav-label">Main Menu</div>
+        <a class="{% if request.path == '/dashboard' or request.path == '/' %}active{% endif %}" href="/dashboard">Dashboard</a>
+        <a class="{% if request.path.startswith('/messages') or request.path.startswith('/admin/messages') %}active{% endif %}" href="/messages">
+          Messages
+          {% if unread_message_count %}
+          <span class="badge">{{ unread_message_count }}</span>
+          {% endif %}
+        </a>
+
+        <details class="nav-group" {% if request.path.startswith('/pqr') or request.path.startswith('/stations') %}open{% endif %}>
+          <summary>Operations</summary>
+          <div>
+            {% if can(current_user, "submit") %}<a class="{% if request.path.startswith('/pqr/new') %}active{% endif %}" href="/pqr/new">PQR Submission</a>{% endif %}
+            <a class="{% if request.path.startswith('/pqr/list') or request.path.startswith('/pqr/edit') %}active{% endif %}" href="/pqr/list">My Submissions</a>
+            <a class="{% if request.path.startswith('/stations') %}active{% endif %}" href="/stations/status">Stations</a>
+          </div>
+        </details>
+
+        {% if can(current_user, "review") or can(current_user, "create_event") or can(current_user, "manage") %}
+        <details class="nav-group" {% if request.path.startswith('/events') or request.path.startswith('/admin/event-rules') %}open{% endif %}>
+          <summary>Events</summary>
+          <div>
+            {% if can(current_user, "review") %}<a class="{% if request.path.startswith('/events/query') %}active{% endif %}" href="/events/query">Event Query</a>{% endif %}
+            {% if can(current_user, "create_event") %}<a class="{% if request.path.startswith('/events/list') or request.path.startswith('/events/new') or request.path.startswith('/events/edit') %}active{% endif %}" href="/events/list">Events List</a>{% endif %}
+            {% if can(current_user, "manage") %}<a class="{% if request.path.startswith('/admin/event-rules') %}active{% endif %}" href="/admin/event-rules">Event Rules</a>{% endif %}
+          </div>
+        </details>
+        {% endif %}
+
+        {% if can(current_user, "export") %}
+        <details class="nav-group" {% if request.path.startswith('/reports') or request.path.startswith('/export') %}open{% endif %}>
+          <summary>Reports</summary>
+          <div>
+            <a class="{% if request.path == '/reports' or request.path.startswith('/export') %}active{% endif %}" href="/reports">Reports Home</a>
+            <a class="{% if request.path.startswith('/reports/user-analytics') %}active{% endif %}" href="/reports/user-analytics">User Analytics</a>
+            <a class="{% if request.path.startswith('/reports/pqr-monitoring') %}active{% endif %}" href="/reports/pqr-monitoring">PQR Monitoring</a>
+          </div>
+        </details>
+        {% endif %}
+
+        {% if can(current_user, "manage") %}
+        <details class="nav-group" {% if request.path.startswith('/admin/users') or request.path.startswith('/admin/stations') or request.path.startswith('/admin/login-logs') or request.path.startswith('/admin/messages') %}open{% endif %}>
+          <summary>Administration</summary>
+          <div>
+            <a class="{% if request.path.startswith('/admin/users') %}active{% endif %}" href="/admin/users">User Management</a>
+            <a class="{% if request.path.startswith('/admin/stations') %}active{% endif %}" href="/admin/stations">Station Management</a>
+            <a class="{% if request.path.startswith('/admin/messages') %}active{% endif %}" href="/admin/messages/new">New Message</a>
+            <a class="{% if request.path.startswith('/admin/login-logs') %}active{% endif %}" href="/admin/login-logs">Login Monitoring</a>
+          </div>
+        </details>
+        {% endif %}
+      </nav>
+
+      <nav class="side-nav account-nav" aria-label="Account">
+        <div class="nav-label">Account</div>
+        <a href="/dashboard">Profile</a>
+        <a class="{% if request.path == '/change-password' %}active{% endif %}" href="/change-password">Change Password</a>
+        <a href="/logout">Logout</a>
+      </nav>
+
+      <div class="help-card">
+        <strong>Need Help?</strong>
+        <span>Contact your Duty Officer or System Administrator</span>
+      </div>
+
+      <footer class="sidebar-foot">© 2026 PHIVOLCS - PQR System.</footer>
+    </aside>
+
+    <div class="portal-main">
+      <header class="portal-topbar">
+        <button class="icon-menu" type="button" aria-label="Menu">☰</button>
+        <label class="portal-search">
+          <span aria-hidden="true">⌕</span>
+          <input type="search" placeholder="Search events, stations, submissions...">
+          <kbd>Ctrl + K</kbd>
+        </label>
+        <div class="topbar-spacer"></div>
+        <button class="date-chip" type="button">
+          <span aria-hidden="true">▣</span>
+          {{ topbar_date_from_display or today_pst_display }} - {{ topbar_date_to_display or today_pst_display }}
+        </button>
+        <div class="notification-bell" aria-label="Notifications"><span>1</span></div>
+        <div class="duty-chip">
+          <div class="mini-avatar" aria-hidden="true"></div>
+          <div>
+            <strong>{{ current_user.display_name }}</strong>
+            <span><i></i> Online</span>
+          </div>
+        </div>
+      </header>
+      <main class="portal-content">
+  {% else %}
+      <main class="public-main">
+  {% endif %}
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <section class="messages">
+              {% for message in messages %}<div>{{ message }}</div>{% endfor %}
+            </section>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </main>
+  {% if current_user %}
+      <nav class="mobile-bottom-nav" aria-label="Mobile quick navigation">
+        <a class="{% if request.path == '/dashboard' or request.path == '/' %}active{% endif %}" href="/dashboard">Dashboard</a>
+        <a class="{% if request.path.startswith('/messages') or request.path.startswith('/admin/messages') %}active{% endif %}" href="/messages">Messages</a>
+        {% if can(current_user, "submit") %}
+        <a class="{% if request.path.startswith('/pqr/new') %}active{% endif %}" href="/pqr/new">Submit</a>
+        {% endif %}
+        {% if can(current_user, "review") %}
+        <a class="{% if request.path.startswith('/events/query') %}active{% endif %}" href="/events/query">Query</a>
+        {% elif can(current_user, "create_event") %}
+        <a class="{% if request.path.startswith('/events') %}active{% endif %}" href="/events/list">Events</a>
+        {% endif %}
+        {% if can(current_user, "export") %}
+        <a class="{% if request.path.startswith('/reports') or request.path.startswith('/export') %}active{% endif %}" href="/reports">Reports</a>
+        {% else %}
+        <a class="{% if request.path.startswith('/pqr/list') or request.path.startswith('/pqr/edit') %}active{% endif %}" href="/pqr/list">Reports</a>
+        {% endif %}
+        <a class="{% if request.path.startswith('/stations') %}active{% endif %}" href="/stations/status">Stations</a>
+      </nav>
+    </div>
+  </div>
+  {% endif %}
+  {% if current_user %}
+  <script>
+    (() => {
+      const body = document.body;
+      const toggle = document.querySelector('.icon-menu');
+      const scrim = document.querySelector('[data-mobile-menu-close]');
+      const sidebar = document.querySelector('#mobile-navigation');
+      const setMenu = open => {
+        body.classList.toggle('mobile-menu-open', open);
+        if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      if (toggle) {
+        toggle.setAttribute('aria-controls', 'mobile-navigation');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.addEventListener('click', () => setMenu(!body.classList.contains('mobile-menu-open')));
+      }
+      if (scrim) scrim.addEventListener('click', () => setMenu(false));
+      if (sidebar) {
+        sidebar.querySelectorAll('a').forEach(link => link.addEventListener('click', () => setMenu(false)));
+      }
+      window.addEventListener('keydown', event => {
+        if (event.key === 'Escape') setMenu(false);
+      });
+    })();
+  </script>
+  <script>
+    (() => {
+      const keyForCurrentPage = () => `pqr:return-scroll:${window.location.pathname}${window.location.search}`;
+      const actionReturnKey = 'pqr:last-action-return';
+      const saveScroll = () => {
+        try {
+          const scrollY = String(window.scrollY || 0);
+          sessionStorage.setItem(keyForCurrentPage(), scrollY);
+          sessionStorage.setItem(actionReturnKey, JSON.stringify({
+            page: `${window.location.pathname}${window.location.search}`,
+            scrollY,
+            savedAt: Date.now(),
+          }));
+        } catch (error) {
+          // Session storage can be unavailable in strict browser modes.
+        }
+      };
+
+      document.querySelectorAll('[data-preserve-scroll]').forEach(element => {
+        element.addEventListener('click', saveScroll, { capture: true });
+        element.addEventListener('pointerdown', saveScroll, { capture: true });
+        if (element.tagName === 'FORM') {
+          element.addEventListener('submit', saveScroll, { capture: true });
+        }
+      });
+      document.querySelectorAll('.event-action-menu-toggle').forEach(element => {
+        element.addEventListener('click', saveScroll, { capture: true });
+        element.addEventListener('pointerdown', saveScroll, { capture: true });
+      });
+
+      window.addEventListener('load', () => {
+        const key = keyForCurrentPage();
+        let savedScroll = null;
+        try {
+          savedScroll = sessionStorage.getItem(key);
+          sessionStorage.removeItem(key);
+          if (savedScroll === null) {
+            const savedActionReturn = JSON.parse(sessionStorage.getItem(actionReturnKey) || 'null');
+            const currentPage = `${window.location.pathname}${window.location.search}`;
+            if (
+              savedActionReturn &&
+              savedActionReturn.page === currentPage &&
+              Date.now() - Number(savedActionReturn.savedAt || 0) < 10 * 60 * 1000
+            ) {
+              savedScroll = savedActionReturn.scrollY;
+            }
+          }
+          if (savedScroll !== null) {
+            sessionStorage.removeItem(actionReturnKey);
+          }
+        } catch (error) {
+          return;
+        }
+        if (savedScroll === null) return;
+
+        const hashTarget = window.location.hash
+          ? document.getElementById(decodeURIComponent(window.location.hash.slice(1)))
+          : null;
+        if (hashTarget) return;
+
+        const scrollY = Number(savedScroll);
+        if (Number.isFinite(scrollY)) {
+          window.setTimeout(() => window.scrollTo({ top: scrollY, behavior: 'auto' }), 0);
+        }
+      });
+    })();
+  </script>
+  {% endif %}
+  {% block scripts_extra %}{% endblock %}
+</body>
+</html>

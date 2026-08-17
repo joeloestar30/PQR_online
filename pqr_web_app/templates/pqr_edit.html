@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-head">
+  <h1>Update PQR</h1>
+  <p>{{ report.event_key }} · {{ report.station_code }} · UTC {{ report.event_datetime_utc }}</p>
+</section>
+<form method="post" class="form-grid">
+  <input type="hidden" name="event_id" value="{{ report.event_id }}">
+  <input type="hidden" name="station_id" value="{{ report.station_id }}">
+  <label>Officer Initials <input name="officer_initials" value="{{ report.officer_initials }}" required></label>
+  {% include "_pqr_fields.html" %}
+  <label class="wide">Reason <input name="reason" value="Correction"></label>
+  <button type="submit">Update</button>
+</form>
+{% endblock %}

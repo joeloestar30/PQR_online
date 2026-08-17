@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Event Region Rules</h1>
+    <p>Manage province and location keyword rules used when assigning earthquake events to PQR regions.</p>
+  </div>
+  <a href="/admin/stations" class="outline-button page-head-action">Back to Stations</a>
+</section>
+
+<section class="reports-grid">
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Add Region Rule</div>
+    <form class="report-filter-form" method="post" action="/admin/event-rules">
+      <label>Province / Keyword
+        <input name="province_name" maxlength="120" required placeholder="Example: Masbate">
+      </label>
+      <label>Region
+        <select name="region_code" required>
+          {% for code, label in region_choices %}
+          <option value="{{ code }}">{{ code }} - {{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Priority
+        <input name="priority" type="number" min="1" max="9999" value="100">
+      </label>
+      <label>Status
+        <select name="is_active">
+          <option value="1">Active</option>
+          <option value="0">Inactive</option>
+        </select>
+      </label>
+      <label class="wide">Notes
+        <input name="notes" maxlength="240" placeholder="Optional reason or instruction">
+      </label>
+      <button type="submit" class="primary-action">Add Rule</button>
+    </form>
+  </article>
+
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Recompute Existing Events</div>
+    <form class="report-filter-form" method="post" action="/admin/event-rules/recompute" onsubmit="return confirm('Recompute event regions and required PQR submissions for the selected period? Submitted PQR reports will be preserved.');">
+      <label>Year
+        <select name="year">
+          {% for year in year_options %}
+          <option value="{{ year }}">{{ year }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Month
+        <select name="month">
+          {% for option in month_options %}
+          <option value="{{ option.value }}">{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="primary-action">Recompute Event Regions</button>
+    </form>
+    <p class="report-card-copy">This updates event region labels and rebuilds required station submissions from the current rules.</p>
+  </article>
+</section>
+
+<section class="portal-card">
+  <div class="card-title">Active and Saved Rules</div>
+  <div class="event-table-wrap">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Province / Keyword</th>
+          <th>Region</th>
+          <th>Priority</th>
+          <th>Status</th>
+          <th>Notes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for rule in rules %}
+        <tr class="event-rule-row">
+          <td colspan="6">
+            <form class="event-rule-inline-form" method="post" action="/admin/event-rules/{{ rule.id }}">
+              <input name="province_name" maxlength="120" value="{{ rule.province_name }}" required aria-label="Province or keyword">
+              <select name="region_code" required aria-label="Region">
+                {% for code, label in region_choices %}
+                <option value="{{ code }}" {% if rule.region_code == code %}selected{% endif %}>{{ code }} - {{ label }}</option>
+                {% endfor %}
+              </select>
+              <input name="priority" type="number" min="1" max="9999" value="{{ rule.priority }}" aria-label="Priority">
+              <select name="is_active" aria-label="Status">
+                <option value="1" {% if rule.is_active %}selected{% endif %}>Active</option>
+                <option value="0" {% if not rule.is_active %}selected{% endif %}>Inactive</option>
+              </select>
+              <input name="notes" maxlength="240" value="{{ rule.notes or '' }}" aria-label="Notes">
+              <button type="submit" class="outline-button">Save</button>
+              <button type="submit" class="outline-button warning-action" formaction="/admin/event-rules/{{ rule.id }}/delete" formnovalidate onclick="return confirm('Delete this event region rule?');">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No event region rules configured.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

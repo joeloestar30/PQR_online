@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="station-dashboard-head">
+  <div>
+    <h1>Station Dashboard - {{ station.display_code or station.station_code }} Station</h1>
+    <p>{{ station.station_name }} - {{ station.region_code }} - Pending PQR submissions, recent reports, and station compliance</p>
+  </div>
+
+  <a href="/pqr/new" class="primary-action station-submit-button">Submit PQR</a>
+</section>
+
+{% if sync_failed_count %}
+<section class="messages">
+  <div>{{ sync_failed_count }} recent submission(s) failed Google Sheets sync. The duty officer or admin can retry sync from the dashboard.</div>
+</section>
+{% endif %}
+
+<section class="station-user-kpi-grid">
+  {% for kpi in kpis %}
+  <article class="station-user-kpi station-user-kpi-{{ kpi.accent }}">
+    <div class="station-user-kpi-icon" aria-hidden="true"></div>
+    <div>
+      <span>{{ kpi.label }}</span>
+      <strong>{{ kpi.value }}</strong>
+      <small>{{ kpi.trend }}</small>
+    </div>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="station-dashboard-grid">
+  <article class="dashboard-card station-pending-panel">
+    <header class="panel-title">
+      <div><span class="panel-icon">!</span>Pending PQR Submissions</div>
+      <a href="/pqr/new">Submit Multiple PQRs</a>
+    </header>
+
+    <div class="dash-table-wrap">
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th>Event Key</th>
+            {% if station.assignment_count and station.assignment_count > 1 %}
+            <th>Station</th>
+            {% endif %}
+            <th>Date / Time (PST)</th>
+            <th>Magnitude</th>
+            <th>Region</th>
+            <th>Location</th>
+            <th>Time Left</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in pending_events %}
+          <tr>
+            <td class="dash-link">{{ event.event_key }}</td>
+            {% if station.assignment_count and station.assignment_count > 1 %}
+            <td>{{ event.station_code }}</td>
+            {% endif %}
+            <td>{{ event.event_datetime_pst }}</td>
+            <td>M{{ event.magnitude or "" }}</td>
+            <td>{{ event.region_code }}</td>
+            <td>{{ event.reference_location }}</td>
+            <td>
+              <strong class="{% if event.hours_left <= 3 %}station-warning-text{% endif %}">
+                {{ event.time_left_label }}
+              </strong>
+            </td>
+            <td>
+              <span class="station-status-pill {% if event.status_label == 'Near Deadline' %}near{% else %}pending{% endif %}">
+                {{ event.status_label }}
+              </span>
+            </td>
+            <td><a class="outline-button" href="/pqr/new?station_id={{ event.station_id }}&event_id={{ event.id }}">Submit</a></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="{% if station.assignment_count and station.assignment_count > 1 %}9{% else %}8{% endif %}">
+              <div class="station-empty-state">
+                <strong>No PQRs needed to submit.</strong>
+                <span>Your station has no pending earthquake event submissions within the active 22-hour window.</span>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="dashboard-card station-compliance-panel">
+    <header class="panel-title">
+      <div><span class="panel-icon">%</span>My Station Compliance</div>
+    </header>
+
+    <div class="station-compliance-box">
+      <strong>{{ compliance_rate }}%</strong>
+      <span>Current Compliance</span>
+
+      <div class="station-progress-track">
+        <i style="width: {{ compliance_rate }}%"></i>
+      </div>
+
+      <dl>
+        <div>
+          <dt>Required</dt>
+          <dd>{{ required_count }}</dd>
+        </div>
+        <div>
+          <dt>Submitted</dt>
+          <dd>{{ submitted_count }}</dd>
+        </div>
+        <div>
+          <dt>Pending</dt>
+          <dd>{{ pending_count }}</dd>
+        </div>
+      </dl>
+    </div>
+  </article>
+
+  <article class="dashboard-card station-recent-panel">
+    <header class="panel-title">
+      <div><span class="panel-icon">#</span>Recent Submissions</div>
+      <a href="/pqr/list">View My Submissions</a>
+    </header>
+
+    <div class="dash-table-wrap">
+      <table class="dashboard-table compact">
+        <thead>
+          <tr>
+            <th>Event Key</th>
+            {% if station.assignment_count and station.assignment_count > 1 %}
+            <th>Station</th>
+            {% endif %}
+            <th>Date / Time (PST)</th>
+            <th>Remarks</th>
+            <th>Sheet Sync</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in recent_submissions %}
+          <tr>
+            <td class="dash-link">{{ row.event_key }}</td>
+            {% if station.assignment_count and station.assignment_count > 1 %}
+            <td>{{ row.station_code }}</td>
+            {% endif %}
+            <td>{{ row.event_datetime_pst }}</td>
+            <td>{{ row.remarks }}</td>
+            <td>
+              <span class="station-sync-pill {{ row.sheet_sync_status }}">
+                {{ row.sheet_sync_status.replace("_", " ").title() }}
+              </span>
+            </td>
+            <td>{{ row.submitted_at_pst }}</td>
+            <td>
+              {% if row.can_update %}
+              <a class="outline-button" href="/pqr/edit/{{ row.id }}">Update</a>
+              {% else %}
+              <span>Closed</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="{% if station.assignment_count and station.assignment_count > 1 %}7{% else %}6{% endif %}">No recent submissions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="dashboard-card station-reminder-panel">
+    <header class="panel-title">
+      <div><span class="panel-icon warning">!</span>Submission Reminders</div>
+    </header>
+
+    <div class="station-reminders">
+      <p>Use these rules before submitting a PQR:</p>
+      <ul>
+        <li>Submit PQR within 22 hours from event time.</li>
+        <li>P-Arrival and S-Arrival must use <strong>HHMMSS.SS</strong> format.</li>
+        <li>P-Polarity must be <strong>iPd, iPc, iP, ePd, ePc, or eP</strong>.</li>
+        <li>S must be <strong>eS</strong> or <strong>iS</strong>.</li>
+        <li>Type must be <strong>L</strong> or <strong>T</strong>.</li>
+        <li>Fill observed/instrumental intensities when applicable.</li>
+      </ul>
+    </div>
+  </article>
+</section>
+
+{% endblock %}

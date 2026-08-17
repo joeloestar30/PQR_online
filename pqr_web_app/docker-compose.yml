@@ -1,0 +1,39 @@
+services:
+  web:
+    build: .
+    command: gunicorn --bind 0.0.0.0:8000 app:app
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://pqr:pqr-change-this-password@db:5432/pqr
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python run_worker.py
+    env_file:
+      - .env
+    environment:
+      FLASK_ENV: production
+      DATABASE_URL: postgresql://pqr:pqr-change-this-password@db:5432/pqr
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: pqr
+      POSTGRES_USER: pqr
+      POSTGRES_PASSWORD: pqr-change-this-password
+    volumes:
+      - pqr_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  pqr_postgres_data:

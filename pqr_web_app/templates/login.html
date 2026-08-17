@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="login-scene">
+  <header class="login-brand">
+    <img class="login-brand-logo" src="{{ url_for('static', filename='img/phivolcs-official-logo.png') }}" alt="PHIVOLCS - Philippine Institute of Volcanology and Seismology">
+    <i aria-hidden="true"></i>
+    <p><strong>Preliminary Quake Report System</strong><br>Rapid Data. Reliable Decisions. Safer Communities.</p>
+  </header>
+
+  <div class="login-copy">
+    <h1>Rapid Data.<br>Reliable Decisions.<br>Safer Communities.</h1>
+    <p>Secure earthquake reporting and situational awareness for PHIVOLCS station operations.</p>
+    <svg class="seismic-wave" viewBox="0 0 620 150" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <path class="wave-baseline" d="M0 76 H112 M282 76 H620" />
+      <path class="wave-trace" d="M44 76 L74 76 L78 68 L82 86 L88 50 L96 112 L105 20 L116 136 L125 42 L134 105 L145 18 L154 132 L164 64 L174 88 L184 38 L196 104 L209 58 L222 84 L238 70 L256 78 L282 76" />
+      <path class="wave-glow" d="M44 76 L74 76 L78 68 L82 86 L88 50 L96 112 L105 20 L116 136 L125 42 L134 105 L145 18 L154 132 L164 64 L174 88 L184 38 L196 104 L209 58 L222 84 L238 70 L256 78 L282 76" />
+    </svg>
+  </div>
+
+  <div class="login-map-panel" aria-hidden="true">
+    <img class="philippines-map" src="{{ url_for('static', filename='img/philippines.svg') }}" alt="">
+    <svg class="map-overlay" viewBox="0 0 702.39001 1209.4381" preserveAspectRatio="xMidYMid meet">
+      <g class="map-earthquakes">
+        {% for quake in login_earthquakes %}
+        <g class="daily-quake {% if quake.latest %}latest{% endif %}" transform="translate({{ quake.x }}, {{ quake.y }})">
+          {% if quake.latest %}
+          <circle class="quake-ring quake-ring-one" r="{{ quake.r * 3.2 }}" />
+          <circle class="quake-ring quake-ring-two" r="{{ quake.r * 4.8 }}" />
+          {% endif %}
+          <circle class="quake-dot" r="{{ quake.r }}" />
+          <title>M{{ "%.1f"|format(quake.magnitude or 0) }} · {{ quake.time_label }} · {{ quake.reference_location }}</title>
+        </g>
+        {% endfor %}
+      </g>
+    </svg>
+    <div class="map-event-count">{{ login_earthquakes|length }} earthquake{{ '' if login_earthquakes|length == 1 else 's' }} today</div>
+  </div>
+
+  <section class="auth-panel quake-login-card">
+    <div class="login-card-mark" aria-hidden="true"><span></span></div>
+    <h2>Preliminary Quake Report</h2>
+    <p>Secure access for station officers and administrators.</p>
+    <div class="login-divider" aria-hidden="true"><span>&#9671;</span></div>
+
+    <form method="post" class="login-form">
+      <label>Username
+        <span class="login-input-wrap">
+          <i class="login-user-icon" aria-hidden="true"></i>
+          <input name="username" required autofocus autocomplete="username" placeholder="Enter your username">
+        </span>
+      </label>
+      <label>Password
+        <span class="login-input-wrap">
+          <i class="login-lock-icon" aria-hidden="true"></i>
+          <input id="login-password" type="password" name="password" required autocomplete="current-password" placeholder="Enter your password">
+          <button class="password-toggle" type="button" aria-label="Show password"><span aria-hidden="true"></span></button>
+        </span>
+      </label>
+      <div class="login-options">
+        <label class="remember-option">
+          <input type="checkbox" name="remember">
+          <span>Remember me</span>
+        </label>
+        <span>Forgot password?</span>
+      </div>
+      <button class="login-submit" type="submit"><span class="login-button-lock" aria-hidden="true"></span> Sign In</button>
+    </form>
+
+    <footer class="login-card-foot">
+      <span>Secure</span>
+      <b>&bull;</b>
+      <span>Reliable</span>
+      <b>&bull;</b>
+      <span>Responsive</span>
+    </footer>
+  </section>
+
+  <footer class="login-footer">
+    <div class="agency-seal" aria-hidden="true">DOST</div>
+    <p>Department of Science and Technology<br>PHIVOLCS - Philippine Institute of Volcanology and Seismology</p>
+    <p class="login-security">Your data is protected.<br>All access is logged and monitored.</p>
+    <p class="login-clock">System Time (PHT)<br><strong id="login-live-clock">{{ today_pst_display }} {{ time_pst_display }}</strong></p>
+  </footer>
+</section>
+
+<script>
+  const passwordInput = document.querySelector('#login-password');
+  const passwordToggle = document.querySelector('.password-toggle');
+  if (passwordInput && passwordToggle) {
+    passwordToggle.addEventListener('click', () => {
+      const showing = passwordInput.type === 'text';
+      passwordInput.type = showing ? 'password' : 'text';
+      passwordToggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    });
+  }
+
+  const loginClock = document.querySelector('#login-live-clock');
+  function updateLoginClock() {
+    if (!loginClock) return;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    loginClock.textContent = formatter.format(new Date()).replace(',', '');
+  }
+  updateLoginClock();
+  setInterval(updateLoginClock, 1000);
+</script>
+{% endblock %}

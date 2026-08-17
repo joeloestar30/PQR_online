@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard-head">
+  <div class="dashboard-pulse" aria-hidden="true">i</div>
+  <div>
+    <h1>Dashboard</h1>
+    <p>Real-time PQR monitoring and earthquake event tracking</p>
+  </div>
+  {% set sync_pending = (sheet_sync_counts.get('pending', 0) if sheet_sync_counts else 0) %}
+  {% set sync_failed = (sheet_sync_counts.get('failed', 0) if sheet_sync_counts else 0) %}
+  {% if can(current_user, "export") %}
+  <form method="post" action="/sync/google/retry" class="dashboard-sync-form">
+    <button type="submit" class="outline-button">Retry Google Sync</button>
+    <span>{{ sync_pending }} pending / {{ sync_failed }} failed</span>
+  </form>
+  {% endif %}
+</section>
+
+<section class="kpi-grid">
+  {% for kpi in kpis %}
+  <article class="kpi-card kpi-{{ kpi.accent }}">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div>
+      <span>{{ kpi.label }}</span>
+      <strong>{{ kpi.value }}</strong>
+      <small>{{ kpi.trend }}</small>
+    </div>
+    <b aria-hidden="true">i</b>
+  </article>
+  {% endfor %}
+</section>
+
+<section class="dashboard-grid">
+  <article class="dashboard-card operations-monitor-card">
+    <header class="panel-title">
+      <div><span class="panel-icon">i</span>Operations Monitor</div>
+      <a href="/stations/status?year={{ station_status.selected_year }}&month={{ station_status.selected_month }}">View all stations</a>
+    </header>
+    <form class="station-filter-bar dashboard-station-filter" method="get" action="/dashboard">
+      <label>Year
+        <select name="year" onchange="this.form.submit()">
+          {% for year in station_status.year_options %}
+          <option value="{{ year }}" {% if year == station_status.selected_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Month
+        <select name="month" onchange="this.form.submit()">
+          {% for month in station_status.month_options %}
+          <option value="{{ month.value }}" {% if month.value == station_status.selected_month %}selected{% endif %}>{{ month.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="station-actions">
+        <a class="outline-button" href="/export/pqr.csv">Export CSV</a>
+        <button type="button" class="primary-action" onclick="window.print()">Print Report</button>
+      </div>
+    </form>
+
+    <div class="operations-tabs">
+      <input type="radio" name="operations_tab" id="operations-tab-status" checked>
+      <input type="radio" name="operations_tab" id="operations-tab-speed">
+      <input type="radio" name="operations_tab" id="operations-tab-activity">
+
+      <div class="operations-tab-list" role="tablist" aria-label="Operations monitor views">
+        <label for="operations-tab-status" id="operations-status-label">Submission Status</label>
+        <label for="operations-tab-speed" id="operations-speed-label">Response Speed</label>
+        <label for="operations-tab-activity" id="operations-activity-label">Activity Feed</label>
+      </div>
+
+      <section class="operations-panel operations-status-panel" role="tabpanel" aria-labelledby="operations-status-label">
+        <div class="station-status-table-wrap">
+          <table class="station-status-table">
+            <thead>
+              <tr>
+                <th rowspan="2">Cluster</th>
+                <th rowspan="2">Station</th>
+                <th colspan="4" class="all-events-head">All Events</th>
+                <th colspan="4" class="felt-events-head">Felt Events</th>
+              </tr>
+              <tr>
+                <th>Number of PQR</th>
+                <th>Number of Events within Cluster</th>
+                <th>PQR % per Station</th>
+                <th>PQR % per Cluster</th>
+                <th>Number of Felt PQR</th>
+                <th>Number of Felt Events within Cluster</th>
+                <th>PQR % for Felt Events per Station</th>
+                <th>PQR % for Felt Events per Cluster</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for group in station_status.station_groups %}
+                {% for station in group.stations %}
+                <tr>
+                  {% if loop.first %}
+                  <td rowspan="{{ group.stations|length }}" class="cluster-name">{{ group.name }}<small>{{ group.station_count }} stations</small></td>
+                  {% endif %}
+                  <td class="station-code">{{ station.code }}</td>
+                  <td>{{ station.submitted }}</td>
+                  <td>{{ station.required }}</td>
+                  <td class="{{ 'danger-text' if station.compliance < 80 else 'success-text' }}">{{ "%.2f"|format(station.compliance) }}%</td>
+                  {% if loop.first %}
+                  <td rowspan="{{ group.stations|length }}" class="{{ 'danger-text' if group.compliance < 80 else 'success-text' }}">{{ "%.2f"|format(group.compliance) }}%</td>
+                  {% endif %}
+                  <td>{{ station.felt_submitted }}</td>
+                  <td>{{ station.felt_required }}</td>
+                  <td class="{{ 'danger-text' if station.felt_compliance < 80 and station.felt_required else 'success-text' }}">{{ "%.2f"|format(station.felt_compliance) }}%</td>
+                  {% if loop.first %}
+                  <td rowspan="{{ group.stations|length }}" class="{{ 'danger-text' if group.felt_compliance < 80 and group.felt_required else 'success-text' }}">{{ "%.2f"|format(group.felt_compliance) }}%</td>
+                  {% endif %}
+                </tr>
+                {% endfor %}
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2">TOTAL</td>
+                <td>{{ station_status.total_submitted }}</td>
+                <td>{{ station_status.total_required }}</td>
+                <td>{{ "%.2f"|format(station_status.overall_compliance) }}%</td>
+                <td>{{ "%.2f"|format(station_status.overall_compliance) }}%</td>
+                <td colspan="2"></td>
+                <td>{{ "%.2f"|format(station_status.felt_overall_compliance) }}%</td>
+                <td>{{ "%.2f"|format(station_status.felt_overall_compliance) }}%</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section class="operations-panel operations-speed-panel" role="tabpanel" aria-labelledby="operations-speed-label">
+        <div class="response-speed-summary">
+          <div>
+            <span>Fastest Station</span>
+            <strong>{{ response_speed.fastest_station.station_code if response_speed.fastest_station else "-" }}</strong>
+            <small>{{ response_speed.fastest_station.median_label if response_speed.fastest_station else "No reports" }} median</small>
+          </div>
+          <div>
+            <span>Network Median</span>
+            <strong>{{ response_speed.network_median_label }}</strong>
+            <small>{{ response_speed.total_submitted }} submitted reports</small>
+          </div>
+          <div>
+            <span>Within 3 Hours</span>
+            <strong>{{ "%.1f"|format(response_speed.within_3h_rate) }}%</strong>
+            <small>{{ response_speed.within_3h_count }} of {{ response_speed.total_required }} required</small>
+          </div>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dashboard-table compact response-speed-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Station</th>
+                <th>Median</th>
+                <th>Average</th>
+                <th>Within 3h</th>
+                <th>Pending</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for station in response_speed.top_stations %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ station.station_code }}</strong><small>{{ station.speed_label }}</small></td>
+                <td>{{ station.median_label }}</td>
+                <td>{{ station.avg_label }}</td>
+                <td>{{ "%.1f"|format(station.within_3h_rate) }}%</td>
+                <td class="{{ 'danger-text' if station.pending_count else 'success-text' }}">{{ station.pending_count }}</td>
+                <td>{{ "%.1f"|format(station.consistency_score) }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="7">No response speed data for this period.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="operations-panel operations-activity-panel" role="tabpanel" aria-labelledby="operations-activity-label">
+        <div class="dashboard-activity-list">
+          {% for item in activity_feed %}
+          <a class="dashboard-activity-item {{ item.kind }}" href="{{ item.url }}">
+            <span aria-hidden="true"></span>
+            <div>
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.body }}</p>
+            </div>
+            <time>{{ item.time }}</time>
+          </a>
+          {% else %}
+          <div class="dashboard-activity-empty">No recent operational activity.</div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  </article>
+</section>
+{% endblock %}

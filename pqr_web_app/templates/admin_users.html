@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>User Management</h1>
+    <p>Create accounts, assign roles, assign stations, and deactivate users.</p>
+  </div>
+  <div class="page-head-action split-actions">
+    <a href="/admin/stations" class="outline-button">Manage Stations</a>
+    <a href="/admin/users/new" class="primary-action">+ Add New User</a>
+  </div>
+</section>
+
+<section class="portal-card">
+  <div class="card-title">Filter Users</div>
+  <form method="get" class="filter-row">
+    <label>Search
+      <input name="search" value="{{ search }}" placeholder="Username, name, email, station">
+    </label>
+    <label>Role
+      <select name="role">
+        <option value="">All Roles</option>
+        {% for item in roles %}
+        <option value="{{ item }}" {% if item == role %}selected{% endif %}>{{ item.replace("_", " ").title() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="event-search">
+      <button type="submit" class="primary-action">Search</button>
+      <a href="/admin/users" class="primary-action">Clear</a>
+      <a href="/admin/users/new" class="primary-action">Create User</a>
+    </div>
+  </form>
+
+  <div class="event-table-wrap">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Display Name</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Station</th>
+          <th>Status</th>
+          <th>Password</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td class="linkish">{{ user.username }}</td>
+          <td>{{ user.display_name }}</td>
+          <td>{{ user.email or "" }}</td>
+          <td>
+            {{ user.role.replace("_", " ").title() }}
+            {% if user.effective_role != user.role %}
+              <span class="one-manned-pill">Duty Officer via QVP</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user.station_code %}
+              {{ user.station_code }} - {{ user.station_name }}
+              {% if user.assigned_station_count and user.assigned_station_count > 1 %}
+                <span class="one-manned-pill">+{{ user.assigned_station_count - 1 }} station(s)</span>
+              {% endif %}
+              {% if user.station_status and user.station_status != 'Regular Station' %}
+                <span class="one-manned-pill">{{ user.station_status }}</span>
+              {% elif user.is_one_manned %}
+                <span class="one-manned-pill">1M</span>
+              {% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>
+            {% if user.is_active %}
+            <span class="status-pill">Active</span>
+            {% else %}
+            <span class="dash-status open">Inactive</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if user.must_change_password %}
+            <span class="dash-status open">Temporary</span>
+            {% else %}
+            <span class="status-pill">Set</span>
+            {% endif %}
+          </td>
+          <td>{{ user.created_at }}</td>
+          <td class="table-actions">
+            <a class="outline-button" href="/admin/users/{{ user.id }}/edit">Edit</a>
+            <form method="post" action="/admin/users/{{ user.id }}/toggle-active">
+              <button type="submit" class="outline-button">{% if user.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9">No users found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

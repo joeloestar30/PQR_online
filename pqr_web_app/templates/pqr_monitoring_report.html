@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head monitoring-page-head">
+  <div>
+    <h1>PQR Monitoring Report</h1>
+    <p>Quarterly and semi-annual SCSS compliance summary.</p>
+  </div>
+  <div class="page-head-action">
+    <a class="outline-button" href="/reports">Back to Reports</a>
+    <button type="button" class="primary-action" onclick="window.print()">Print</button>
+  </div>
+</section>
+
+<section class="portal-card monitoring-filter-card">
+  <form class="report-filter-form monitoring-filter-form" method="get" action="/reports/pqr-monitoring">
+    <label>Report Period
+      <select name="period_type">
+        <option value="quarter" {% if selected_period_type == "quarter" %}selected{% endif %}>Quarterly</option>
+        <option value="semester" {% if selected_period_type == "semester" %}selected{% endif %}>Semi-annual</option>
+      </select>
+    </label>
+    <label>Year
+      <input type="number" name="year" min="2000" max="2100" value="{{ selected_year }}">
+    </label>
+    <label>Quarter / Semester
+      <select name="period">
+        <option value="1" {% if selected_period == "1" %}selected{% endif %}>1st Quarter / 1st Semester</option>
+        <option value="2" {% if selected_period == "2" %}selected{% endif %}>2nd Quarter / 2nd Semester</option>
+        <option value="3" {% if selected_period == "3" %}selected{% endif %}>3rd Quarter</option>
+        <option value="4" {% if selected_period == "4" %}selected{% endif %}>4th Quarter</option>
+      </select>
+    </label>
+    <button type="submit" class="primary-action">Update Preview</button>
+    <button type="submit" class="outline-button" formaction="/reports/pqr-monitoring.xlsx">Export Excel</button>
+    <button type="submit" class="outline-button" formaction="/reports/pqr-monitoring.pdf">Export PDF</button>
+    <fieldset class="monitoring-signature-editor">
+      <legend>Editable Lower Report Section</legend>
+      <label>Prepared By
+        <input name="prepared_name" value="{{ signatures.prepared_name }}">
+      </label>
+      <label>Prepared Title
+        <input name="prepared_title" value="{{ signatures.prepared_title }}">
+      </label>
+      <label>Reviewed By
+        <input name="reviewed_name" value="{{ signatures.reviewed_name }}">
+      </label>
+      <label>Reviewed Title
+        <input name="reviewed_title" value="{{ signatures.reviewed_title }}">
+      </label>
+      <label>Approved By
+        <input name="approved_name" value="{{ signatures.approved_name }}">
+      </label>
+      <label>Approved Title
+        <input name="approved_title" value="{{ signatures.approved_title }}">
+      </label>
+      <label>Noted By
+        <input name="noted_name" value="{{ signatures.noted_name }}">
+      </label>
+      <label>Noted Title
+        <input name="noted_title" value="{{ signatures.noted_title }}">
+      </label>
+    </fieldset>
+  </form>
+</section>
+
+<section class="monitoring-sheet">
+  <header class="monitoring-title-block">
+    <h2>PQR MONITORING</h2>
+    <p>{{ report.period.subtitle }}</p>
+    <strong class="{{ 'monitoring-low' if report.overall_low else '' }}">{{ report.overall_display }}</strong>
+  </header>
+
+  <div class="monitoring-as-of"><b>as of</b> <span>{{ report.as_of }}</span></div>
+
+  <div class="monitoring-table-wrap">
+    <table class="monitoring-table">
+      <thead>
+        <tr>
+          <th rowspan="2">Cluster</th>
+          <th rowspan="2">SCSS</th>
+          <th colspan="{{ report.period.months|length }}">Percentage per Month</th>
+          <th rowspan="2">Total Percentage per SCSS</th>
+        </tr>
+        <tr>
+          {% for month in report.period.months %}
+          <th>{{ month.name }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for cluster in report.clusters %}
+          {% for station in cluster.stations %}
+          <tr>
+            {% if loop.first %}
+            <td class="monitoring-cluster" rowspan="{{ cluster.stations|length }}">{{ cluster.display_name }}</td>
+            {% endif %}
+            <td class="monitoring-station">{{ station.code }}</td>
+            {% for monthly in station.monthly %}
+            <td class="{{ 'monitoring-low' if monthly.low else '' }}">{{ monthly.display }}</td>
+            {% endfor %}
+            <td class="{{ 'monitoring-low' if station.total_low else '' }}"><b>{{ station.total_display }}</b></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="{{ 3 + report.period.months|length }}">No SCSS stations are available for this report.</td></tr>
+        {% endfor %}
+        <tr class="monitoring-total-row">
+          <td colspan="2">TOTAL PERCENTAGE</td>
+          {% for total in report.monthly_totals %}
+          <td class="{{ 'monitoring-low' if total.low else '' }}">{{ total.display }}</td>
+          {% endfor %}
+          <td class="{{ 'monitoring-low' if report.overall_low else '' }}">{{ report.overall_display }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <section class="monitoring-signatures">
+    <div>
+      <strong>Prepared By: {{ signatures.prepared_name }}</strong>
+      <span>({{ signatures.prepared_title }})</span>
+    </div>
+    <div>
+      <strong>Reviewed By: {{ signatures.reviewed_name }}</strong>
+      <span>({{ signatures.reviewed_title }})</span>
+    </div>
+    <div>
+      <strong>Approved By: {{ signatures.approved_name }}</strong>
+      <span>({{ signatures.approved_title }})</span>
+    </div>
+    <div>
+      <strong>Noted By: {{ signatures.noted_name }}</strong>
+      <span>({{ signatures.noted_title }})</span>
+    </div>
+  </section>
+</section>
+{% endblock %}

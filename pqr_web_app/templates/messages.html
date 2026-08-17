@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Messages</h1>
+    <p>Operational alerts, announcements, and items that need attention.</p>
+  </div>
+  <div class="page-head-action message-head-actions">
+    {% if can(current_user, "manage") %}
+    <a class="outline-button" href="/admin/messages/new">New Message</a>
+    {% endif %}
+    {% if messages %}
+    <form method="post" action="/messages/read-all">
+      <input type="hidden" name="filter" value="{{ selected_filter }}">
+      <button type="submit" class="primary-action">Mark Visible Read</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="portal-card message-filter-card">
+  <nav class="message-tabs" aria-label="Message filters">
+    {% for key, label in categories.items() %}
+    <a class="{% if selected_filter == key %}active{% endif %}" href="/messages?filter={{ key }}">
+      {{ label }}
+      {% if key == "all" and unread_count %}
+      <span>{{ unread_count }}</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </nav>
+</section>
+
+<section class="message-list" aria-label="Messages">
+  {% if messages %}
+    {% for message in messages %}
+    <article class="message-item {% if message.is_read %}read{% endif %} priority-{{ message.priority }}">
+      <header>
+        <div>
+          <span class="message-priority">{{ message.priority_label }}</span>
+          <span class="message-category">{{ message.category_label }}</span>
+          {% if message.target_station_code %}
+          <span class="message-station">{{ message.target_station_code }}</span>
+          {% endif %}
+        </div>
+        <time>{{ message.created_label }}</time>
+      </header>
+      <div class="message-body-row">
+        <div class="message-copy">
+          <h2>{{ message.title }}</h2>
+          <p>{{ message.body }}</p>
+        </div>
+        <div class="message-actions">
+          {% if message.source == "stored" %}
+          <a class="primary-action" href="/messages/{{ message.id }}">Open Thread</a>
+          {% if message.action_url %}
+          <a class="outline-button" href="{{ message.action_url }}">Open Link</a>
+          {% endif %}
+          {% elif message.action_url %}
+          <a class="primary-action" href="{{ message.action_url }}">Open</a>
+          {% endif %}
+          {% if not message.is_read %}
+          <form method="post" action="/messages/read">
+            <input type="hidden" name="message_key" value="{{ message.key }}">
+            <input type="hidden" name="next" value="/messages?filter={{ selected_filter }}">
+            <button type="submit" class="outline-button">Mark Read</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  {% else %}
+  <article class="station-empty-state message-empty-state">
+    <strong>No messages here</strong>
+    <span>New operational alerts and announcements will appear when they apply to your role or station.</span>
+  </article>
+  {% endif %}
+</section>
+{% endblock %}

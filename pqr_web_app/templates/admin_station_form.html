@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>{% if mode == "new" %}Add Station{% else %}Edit Station{% endif %}</h1>
+    <p>Manage station identity, cluster, region, and PQR participation status.</p>
+  </div>
+  <a href="/admin/stations" class="outline-button page-head-action">Back to Stations</a>
+</section>
+
+<section class="portal-card">
+  <div class="card-title">{% if mode == "new" %}Create Station{% else %}Update Station{% endif %}</div>
+  <form method="post" class="form-grid admin-station-form">
+    <label>Station Code
+      <input name="station_code" required maxlength="16" value="{{ station.station_code if station else '' }}" placeholder="Example: ABC">
+    </label>
+    <label>Station Name
+      <input name="station_name" required maxlength="120" value="{{ station.station_name if station else '' }}" placeholder="Example: ABC Seismic Station">
+    </label>
+    <label>Cluster
+      <select name="cluster_name" id="station-cluster-select" required>
+        <option value="">Select cluster</option>
+        {% for cluster_name in station_clusters %}
+        <option value="{{ cluster_name }}" {% if station and station.cluster_name == cluster_name %}selected{% endif %}>{{ cluster_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Region
+      <input id="station-region-preview" value="{{ station.region_code if station else '' }}" readonly>
+    </label>
+    <label>Station Type
+      {% set station_type_value = station.station_type if station else 'SCSS' %}
+      <select name="station_type" id="station-type-select">
+        <option value="SCSS" {% if station_type_value == 'SCSS' %}selected{% endif %}>SCSS - Staff-Controlled Seismic Station</option>
+        <option value="STSS" {% if station_type_value == 'STSS' %}selected{% endif %}>STSS - Satellite-Telemetered Seismic Station</option>
+      </select>
+    </label>
+    <label>Include in PQR Compliance
+      {% set include_value = station.include_in_pqr_compliance if station else 1 %}
+      <select name="include_in_pqr_compliance" id="station-include-pqr-select">
+        <option value="1" {% if include_value == 1 %}selected{% endif %}>Yes</option>
+        <option value="0" {% if include_value == 0 %}selected{% endif %}>No</option>
+      </select>
+    </label>
+    <label>Station Status
+      {% set status_value = station.station_status if station else 'Regular Station' %}
+      <select name="station_status" id="station-status-select">
+        <option value="regular" {% if status_value == 'Regular Station' %}selected{% endif %}>Regular Station</option>
+        <option value="1M" {% if status_value == '1M' %}selected{% endif %}>1-Manned Station (1M)</option>
+        <option value="custom" {% if status_value not in ['Regular Station', '1M'] %}selected{% endif %}>Add status not in list...</option>
+      </select>
+    </label>
+    <label id="station-custom-status-field">Custom Station Status
+      <input name="custom_station_status" id="station-custom-status" maxlength="80" value="{% if status_value not in ['Regular Station', '1M'] %}{{ status_value }}{% endif %}" placeholder="Example: Seasonal Station">
+    </label>
+    <label>Status
+      {% set active_value = station.is_active if station else 1 %}
+      <select name="is_active">
+        <option value="1" {% if active_value == 1 %}selected{% endif %}>Active</option>
+        <option value="0" {% if active_value == 0 %}selected{% endif %}>Inactive</option>
+      </select>
+    </label>
+    <p class="wide admin-user-hint">Only stations included in PQR compliance appear in Dashboard/Stations compliance tables and required PQR generation.</p>
+    <div class="action-row wide">
+      <button type="submit" class="primary-action">{% if mode == "new" %}Create Station{% else %}Save Changes{% endif %}</button>
+      <a href="/admin/stations" class="outline-button">Cancel</a>
+    </div>
+  </form>
+</section>
+
+<script>
+  const stationClusterRegions = {
+    {% for cluster_name, station_codes in station_clusters.items() %}
+    "{{ cluster_name }}": "{{ {'North Luzon Cluster': 'NL', 'South Luzon Cluster': 'SL', 'Visayas Cluster': 'VIS', 'Mindanao Cluster': 'MIN'}[cluster_name] }}",
+    {% endfor %}
+  };
+  const stationClusterSelect = document.querySelector('#station-cluster-select');
+  const stationRegionPreview = document.querySelector('#station-region-preview');
+  const stationStatusSelect = document.querySelector('#station-status-select');
+  const stationCustomStatusField = document.querySelector('#station-custom-status-field');
+  const stationCustomStatus = document.querySelector('#station-custom-status');
+  const stationTypeSelect = document.querySelector('#station-type-select');
+  const stationIncludePqrSelect = document.querySelector('#station-include-pqr-select');
+
+  function updateStationRegionPreview() {
+    if (!stationClusterSelect || !stationRegionPreview) return;
+    stationRegionPreview.value = stationClusterRegions[stationClusterSelect.value] || '';
+  }
+
+  function updateStationCustomStatus() {
+    const usesCustom = stationStatusSelect && stationStatusSelect.value === 'custom';
+    if (stationCustomStatusField) stationCustomStatusField.style.display = usesCustom ? '' : 'none';
+    if (stationCustomStatus) {
+      stationCustomStatus.required = usesCustom;
+      if (!usesCustom) stationCustomStatus.value = '';
+    }
+  }
+
+  function updateStationTypeDefaults() {
+    if (!stationTypeSelect || !stationIncludePqrSelect) return;
+    if (stationTypeSelect.value === 'STSS') {
+      stationIncludePqrSelect.value = '0';
+    }
+  }
+
+  if (stationClusterSelect) {
+    stationClusterSelect.addEventListener('change', updateStationRegionPreview);
+    updateStationRegionPreview();
+  }
+  if (stationStatusSelect) {
+    stationStatusSelect.addEventListener('change', updateStationCustomStatus);
+    updateStationCustomStatus();
+  }
+  if (stationTypeSelect) {
+    stationTypeSelect.addEventListener('change', updateStationTypeDefaults);
+  }
+</script>
+{% endblock %}

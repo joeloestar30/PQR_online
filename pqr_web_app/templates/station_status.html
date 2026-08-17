@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="station-status-head">
+  <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <span>Station Monthly Matrix</span></div>
+  <div class="dashboard-head compact">
+    <div class="dashboard-pulse" aria-hidden="true">i</div>
+    <div>
+      <h1>Station Monthly Matrix</h1>
+      <p>Event-by-station PQR monitoring for the selected month</p>
+    </div>
+  </div>
+</section>
+
+<section class="station-kpi-grid">
+  <article class="station-kpi green">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>All Events Overall Compliance</span><strong>{{ "%.2f"|format(overall_compliance) }}%</strong><small>{{ total_submitted }} / {{ total_required }} submitted</small></div>
+  </article>
+  <article class="station-kpi blue">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Felt Events Overall Compliance</span><strong>{{ "%.2f"|format(felt_overall_compliance) }}%</strong><small>Based on observed or instrumental intensities</small></div>
+  </article>
+  <article class="station-kpi trophy">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Best Performing Cluster</span><strong>{{ best_cluster.name }}</strong><small>{{ "%.2f"|format(best_cluster.compliance) }}% All Events</small></div>
+  </article>
+  <article class="station-kpi alert">
+    <div class="kpi-icon" aria-hidden="true"></div>
+    <div><span>Needs Attention</span><strong>{{ attention_label }}</strong><small>Stations below 80% target are highlighted</small></div>
+  </article>
+</section>
+
+<section class="station-matrix-layout">
+  <article class="dashboard-card station-event-matrix-card">
+    <form class="station-filter-bar station-matrix-filter" method="get" action="/stations/status">
+      <label>Year
+        <select name="year" onchange="this.form.submit()">
+          {% for year in year_options %}
+          <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Month
+        <select name="month" onchange="this.form.submit()">
+          {% for month in month_options %}
+          <option value="{{ month.value }}" {% if month.value == selected_month %}selected{% endif %}>{{ month.label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="station-actions">
+        <a class="outline-button" href="/export/pqr.csv">Export CSV</a>
+        <button type="button" class="primary-action" onclick="window.print()">Print Report</button>
+      </div>
+    </form>
+
+    <div class="matrix-title">List of Events for the Month of {{ selected_month_label }}</div>
+    <div class="station-event-matrix-wrap">
+      <table class="station-event-matrix">
+        <thead>
+          <tr>
+            <th rowspan="2" class="event-time-col">Event Time</th>
+            <th rowspan="2" class="event-mag-col">Mag</th>
+            <th rowspan="2" class="event-location-col">Reference Location</th>
+            <th rowspan="2" class="event-key-col">Event Key</th>
+            <th rowspan="2" class="event-felt-col">Felt</th>
+            <th rowspan="2" class="event-region-col">Event Loc</th>
+            <th rowspan="2" class="event-actions-col">Actions</th>
+            {% for group in station_matrix_groups %}
+            <th colspan="{{ group.stations|length }}" class="matrix-cluster-head cluster-{{ group.class }}">{{ group.name }}</th>
+            {% endfor %}
+          </tr>
+          <tr>
+            {% for group in station_matrix_groups %}
+              {% for station in group.stations %}
+              <th class="station-code-head cluster-{{ group.class }}">{{ station.code }}</th>
+              {% endfor %}
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for event in station_matrix_events %}
+          <tr id="event-{{ event.id }}" class="event-anchor-target">
+            <td class="event-time-cell">{{ event.event_datetime_label }}</td>
+            <td class="event-mag-cell">{{ event.magnitude or "" }}</td>
+            <td class="event-location-cell">{{ event.reference_location }}</td>
+            <td class="event-key-cell">{{ event.event_key }}</td>
+            <td class="event-felt-cell">
+              {% if event.is_felt %}
+              <span class="felt-pill yes">Yes</span>
+              {% else %}
+              <span class="felt-pill no">No</span>
+              {% endif %}
+            </td>
+            <td class="event-region-cell region-{{ event.region_code|lower }}">{{ event.region_code }}</td>
+            <td class="event-actions-cell">
+              {% if event.merge_candidates or event.can_exclude_from_pqr_rating %}
+              <div class="event-action-menu">
+                <button type="button" class="event-action-menu-toggle" aria-expanded="false">Actions</button>
+                <div class="event-action-menu-list" hidden>
+                  <div class="event-action-menu-label">Select action</div>
+                {% for candidate in event.merge_candidates %}
+                  <a class="{{ '' if candidate.safe else 'needs-review' }}" href="/events/{{ event.id }}/merge-pqr/{{ candidate.target_id }}?return_url={{ (request.full_path ~ '#event-' ~ event.id)|urlencode }}" data-preserve-scroll>
+                  {{ candidate.action_label or (("Merge PQR" if candidate.safe else "Review PQR Merge") ~ " to Event " ~ candidate.direction|title) }}
+                </a>
+                {% endfor %}
+                {% if event.merge_candidates or event.can_exclude_from_pqr_rating %}
+                <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" data-preserve-scroll onsubmit="return confirm('Exclude this imported event from PQR rating? It will stay visible in Events List for audit.');">
+                  <input type="hidden" name="return_url" value="{{ request.full_path }}#event-{{ event.id }}">
+                  <input type="hidden" name="excluded" value="1">
+                  <input type="hidden" name="reason" value="Unmatched imported Google Sheet placeholder">
+                  <button type="submit" class="warning-action">Exclude from Rating</button>
+                </form>
+                {% endif %}
+                </div>
+              </div>
+              {% elif event.is_import_placeholder %}
+              <span class="muted-table-note">No nearby event</span>
+              {% else %}
+              <span class="muted-table-note">-</span>
+              {% endif %}
+            </td>
+            {% for group in event.cell_groups %}
+              {% for cell in group.cells %}
+              <td class="matrix-status-cell cluster-{{ group.class }} {{ 'one-manned-cell' if cell.value == '1M' else 'pending-cell' if cell.value == '0' else 'submitted-cell' if cell.value else 'blank-cell' }}">{{ cell.value }}</td>
+              {% endfor %}
+            {% endfor %}
+          </tr>
+          {% else %}
+          <tr><td colspan="{{ station_matrix_colspan }}">No events available for {{ selected_month_label }}.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-card-list station-mobile-event-list">
+      {% for event in station_matrix_events %}
+      <article id="mobile-event-{{ event.id }}" class="mobile-data-card event-anchor-target">
+        <div class="mobile-card-head">
+          <strong>{{ event.event_key }}</strong>
+          <span>{{ event.region_code }}</span>
+        </div>
+        <div class="mobile-card-meta">
+          <span>{{ event.event_datetime_label }}</span>
+          <span>M{{ event.magnitude or "-" }}</span>
+        </div>
+        <p>{{ event.reference_location }}</p>
+        <div class="mobile-card-stats">
+          <span>Felt <b>{{ "Yes" if event.is_felt else "No" }}</b></span>
+          {% for group in event.cell_groups %}
+          {% set group_submitted = namespace(count=0) %}
+          {% set group_pending = namespace(count=0) %}
+          {% for cell in group.cells %}
+            {% if cell.value and cell.value != "0" and cell.value != "1M" %}
+              {% set group_submitted.count = group_submitted.count + 1 %}
+            {% elif cell.value == "0" %}
+              {% set group_pending.count = group_pending.count + 1 %}
+            {% endif %}
+          {% endfor %}
+          <span>Cluster {{ loop.index }} <b>{{ group_submitted.count }}/{{ group.cells|length }}</b></span>
+          {% endfor %}
+        </div>
+        {% if event.merge_candidates %}
+        <div class="mobile-card-actions">
+          {% for candidate in event.merge_candidates %}
+          <a class="outline-button mobile-card-action" href="/events/{{ event.id }}/merge-pqr/{{ candidate.target_id }}?return_url={{ (request.full_path ~ '#mobile-event-' ~ event.id)|urlencode }}" data-preserve-scroll>{{ candidate.action_label or (("Merge PQR" if candidate.safe else "Review PQR Merge") ~ " to Event " ~ candidate.direction|title) }}</a>
+          {% endfor %}
+        </div>
+        {% elif event.can_exclude_from_pqr_rating %}
+        <form method="post" action="/events/{{ event.id }}/pqr-rating-exclusion" class="mobile-card-actions" data-preserve-scroll onsubmit="return confirm('Exclude this imported event from PQR rating?');">
+          <input type="hidden" name="return_url" value="{{ request.full_path }}#mobile-event-{{ event.id }}">
+          <input type="hidden" name="excluded" value="1">
+          <input type="hidden" name="reason" value="Unmatched imported Google Sheet placeholder">
+          <button type="submit" class="outline-button mobile-card-action">Exclude from Rating</button>
+        </form>
+        {% endif %}
+      </article>
+      {% else %}
+      <article class="mobile-empty-card">No events available for {{ selected_month_label }}.</article>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+<script>
+  (() => {
+    const closeMenus = except => {
+      document.querySelectorAll('.event-action-menu.is-open').forEach(menu => {
+        if (menu === except) return;
+        menu.classList.remove('is-open');
+        const toggle = menu.querySelector('.event-action-menu-toggle');
+        const list = menu.querySelector('.event-action-menu-list');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        if (list) list.hidden = true;
+      });
+    };
+
+    document.querySelectorAll('.event-action-menu-toggle').forEach(toggle => {
+      toggle.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const menu = toggle.closest('.event-action-menu');
+        const list = menu ? menu.querySelector('.event-action-menu-list') : null;
+        if (!menu || !list) return;
+        const willOpen = !menu.classList.contains('is-open');
+        closeMenus(menu);
+        menu.classList.toggle('is-open', willOpen);
+        toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        list.hidden = !willOpen;
+      });
+    });
+
+    document.addEventListener('click', () => closeMenus());
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeMenus();
+    });
+  })();
+</script>
+{% endblock %}

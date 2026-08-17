@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>{% if mode == "new" %}New User{% else %}Edit User{% endif %}</h1>
+    <p>Manage user account, role, station assignment, and login access.</p>
+  </div>
+  <a href="/admin/users" class="outline-button page-head-action">Back to Users</a>
+</section>
+
+<section class="portal-card">
+  <div class="card-title">{% if mode == "new" %}Create User Account{% else %}Update User Account{% endif %}</div>
+  <form method="post" class="form-grid admin-user-form">
+    <label>Username
+      <input name="username" required value="{{ user.username if user else '' }}">
+    </label>
+    <label>Display Name
+      <input name="display_name" required value="{{ user.display_name if user else '' }}">
+    </label>
+    <label>Email
+      <input type="email" name="email" value="{{ user.email if user else '' }}">
+    </label>
+    <label>Role
+      <select name="role" id="admin-user-role" required>
+        {% set current_role = user.role if user else '' %}
+        {% for role in roles %}
+        <option value="{{ role }}" {% if role == current_role %}selected{% endif %}>{{ role.replace("_", " ").title() }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label id="admin-user-station-mode-field" class="visually-hidden">Station Assignment
+      <select name="station_assignment_mode" id="admin-user-station-mode" tabindex="-1">
+        <option value="existing">Select Existing Station</option>
+        <option value="custom">Add Station Not Listed</option>
+      </select>
+    </label>
+    <label id="admin-user-station-field">Assigned Station
+      <select name="station_id" id="admin-user-station">
+        <option value="">No station</option>
+        <option value="__custom__">Add station not in list...</option>
+        {% set current_station = user.station_id|string if user and user.station_id else '' %}
+        {% for station in stations %}
+        <option
+          value="{{ station.id }}"
+          data-one-manned="{{ station.is_one_manned or 0 }}"
+          data-station-status="{{ station.station_status or ('1M' if station.is_one_manned else 'Regular Station') }}"
+          {% if station.id|string == current_station %}selected{% endif %}
+        >
+          {{ station.station_code }} - {{ station.station_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+    <div id="admin-user-assigned-stations-field" class="wide assigned-stations-field">
+      <div class="assigned-stations-head">
+        <strong>Additional Assigned Stations</strong>
+        <span>Primary station is included automatically. Select other stations this user may submit for.</span>
+      </div>
+      <div class="assigned-stations-grid">
+        {% set assigned_ids = assigned_station_ids or [] %}
+        {% for station in stations %}
+        <label class="station-check">
+          <input
+            type="checkbox"
+            name="assigned_station_ids"
+            value="{{ station.id }}"
+            {% if station.id|string in assigned_ids or (user and user.station_id and station.id|string == user.station_id|string) %}checked{% endif %}
+          >
+          <span>{{ station.station_code }} - {{ station.station_name }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    <label id="admin-user-custom-code-field">New Station Code
+      <input name="custom_station_code" id="admin-user-custom-code" maxlength="16" placeholder="Example: ABC">
+    </label>
+    <label id="admin-user-custom-name-field">New Station Name
+      <input name="custom_station_name" id="admin-user-custom-name" maxlength="120" placeholder="Example: ABC Seismic Station">
+    </label>
+    <label id="admin-user-custom-cluster-field">New Station Cluster
+      <select name="custom_station_cluster" id="admin-user-custom-cluster">
+        <option value="">Select cluster</option>
+        {% for cluster_name, station_codes in station_clusters.items() %}
+        <option value="{{ cluster_name }}">{{ cluster_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label id="admin-user-station-status-field">Station Status
+      <select name="station_status" id="admin-user-station-status">
+        <option value="regular">Regular Station</option>
+        <option value="1M">1-Manned Station (1M)</option>
+        <option value="custom">Add status not in list...</option>
+      </select>
+    </label>
+    <label id="admin-user-custom-status-field">Custom Station Status
+      <input name="custom_station_status" id="admin-user-custom-status" maxlength="80" placeholder="Example: Seasonal Station">
+    </label>
+    <label>Status
+      {% set active_value = user.is_active if user else 1 %}
+      <select name="is_active">
+        <option value="1" {% if active_value == 1 %}selected{% endif %}>Active</option>
+        <option value="0" {% if active_value == 0 %}selected{% endif %}>Inactive</option>
+      </select>
+    </label>
+    <label class="wide">{% if mode == "new" %}Password{% else %}New Password{% endif %}
+      <input type="password" name="password" {% if mode == "new" %}required{% endif %}>
+    </label>
+    {% if mode == "edit" %}
+    <p class="wide">Leave password blank if you do not want to change it. If you set a new password for another user, the user must change it on next login.</p>
+    {% elif mode == "new" %}
+    <p class="wide">This password is temporary. The user must change it on first login.</p>
+    {% endif %}
+    <p class="wide admin-user-hint">Assigned Station is required only for Station User accounts. Other roles are saved without station assignment.</p>
+    <div class="action-row wide">
+      <button type="submit" class="primary-action">{% if mode == "new" %}Create User{% else %}Save Changes{% endif %}</button>
+      <a href="/admin/users" class="outline-button">Cancel</a>
+    </div>
+  </form>
+</section>
+<script>
+  const adminUserRole = document.querySelector('#admin-user-role');
+  const adminUserStationMode = document.querySelector('#admin-user-station-mode');
+  const adminUserStationModeField = document.querySelector('#admin-user-station-mode-field');
+  const adminUserStation = document.querySelector('#admin-user-station');
+  const adminUserStationField = document.querySelector('#admin-user-station-field');
+  const adminUserStationStatus = document.querySelector('#admin-user-station-status');
+  const adminUserStationStatusField = document.querySelector('#admin-user-station-status-field');
+  const adminUserAssignedStationsField = document.querySelector('#admin-user-assigned-stations-field');
+  const adminUserAssignedStationChecks = document.querySelectorAll('[name="assigned_station_ids"]');
+  const adminUserCustomStatus = document.querySelector('#admin-user-custom-status');
+  const adminUserCustomStatusField = document.querySelector('#admin-user-custom-status-field');
+  const adminUserCustomCode = document.querySelector('#admin-user-custom-code');
+  const adminUserCustomName = document.querySelector('#admin-user-custom-name');
+  const adminUserCustomCluster = document.querySelector('#admin-user-custom-cluster');
+  const adminUserCustomFields = [
+    document.querySelector('#admin-user-custom-code-field'),
+    document.querySelector('#admin-user-custom-name-field'),
+    document.querySelector('#admin-user-custom-cluster-field')
+  ];
+
+  function updateStationRequirement() {
+    if (!adminUserRole || !adminUserStation || !adminUserStationField || !adminUserStationMode) return;
+    const isStationUser = adminUserRole.value === 'station_user';
+    const usesCustomStation = isStationUser && (
+      adminUserStationMode.value === 'custom' || adminUserStation.value === '__custom__'
+    );
+    const usesExistingStation = isStationUser && !usesCustomStation;
+    adminUserStationMode.value = usesCustomStation ? 'custom' : 'existing';
+    adminUserStation.required = usesExistingStation;
+    adminUserStation.disabled = !isStationUser;
+    adminUserStationMode.disabled = !isStationUser;
+    adminUserStationField.classList.toggle('station-required', isStationUser);
+    if (adminUserStationModeField) adminUserStationModeField.classList.toggle('station-required', isStationUser);
+    if (adminUserStationStatusField) adminUserStationStatusField.classList.toggle('station-required', isStationUser);
+    if (adminUserAssignedStationsField) adminUserAssignedStationsField.style.display = isStationUser && !usesCustomStation ? '' : 'none';
+    adminUserAssignedStationChecks.forEach(check => {
+      check.disabled = !isStationUser || usesCustomStation;
+    });
+    adminUserCustomFields.forEach(field => {
+      if (field) field.style.display = usesCustomStation ? '' : 'none';
+    });
+    if (adminUserCustomCode) adminUserCustomCode.required = usesCustomStation;
+    if (adminUserCustomName) adminUserCustomName.required = usesCustomStation;
+    if (adminUserCustomCluster) adminUserCustomCluster.required = usesCustomStation;
+    updateCustomStatusRequirement(isStationUser);
+    if (!isStationUser) {
+      adminUserStation.value = '';
+      adminUserStationMode.value = 'existing';
+    }
+    syncPrimaryStationCheck();
+    updateStationStatusValue();
+  }
+
+  function syncPrimaryStationCheck() {
+    if (!adminUserStation) return;
+    adminUserAssignedStationChecks.forEach(check => {
+      const isPrimary = check.value === adminUserStation.value && adminUserStation.value !== '';
+      if (isPrimary) check.checked = true;
+      check.closest('.station-check')?.classList.toggle('primary-station-check', isPrimary);
+    });
+  }
+
+  function updateStationStatusValue() {
+    if (!adminUserStation || !adminUserStationStatus) return;
+    if (adminUserStationMode && adminUserStationMode.value === 'custom') return;
+    const selectedOption = adminUserStation.options[adminUserStation.selectedIndex];
+    const stationStatus = selectedOption ? (selectedOption.dataset.stationStatus || '') : '';
+    if (stationStatus === '1M') {
+      adminUserStationStatus.value = '1M';
+      if (adminUserCustomStatus) adminUserCustomStatus.value = '';
+    } else if (stationStatus && stationStatus !== 'Regular Station') {
+      adminUserStationStatus.value = 'custom';
+      if (adminUserCustomStatus) adminUserCustomStatus.value = stationStatus;
+    } else {
+      adminUserStationStatus.value = 'regular';
+      if (adminUserCustomStatus) adminUserCustomStatus.value = '';
+    }
+    updateCustomStatusRequirement(adminUserRole && adminUserRole.value === 'station_user');
+  }
+
+  function updateCustomStatusRequirement(isStationUser) {
+    const usesCustomStatus = isStationUser && adminUserStationStatus && adminUserStationStatus.value === 'custom';
+    if (adminUserCustomStatusField) adminUserCustomStatusField.style.display = usesCustomStatus ? '' : 'none';
+    if (adminUserCustomStatus) adminUserCustomStatus.required = usesCustomStatus;
+  }
+
+  if (adminUserRole) {
+    adminUserRole.addEventListener('change', updateStationRequirement);
+    updateStationRequirement();
+  }
+  if (adminUserStation) {
+    adminUserStation.addEventListener('change', () => {
+      if (adminUserStation.value === '__custom__' && adminUserStationMode) {
+        adminUserStationMode.value = 'custom';
+      }
+      syncPrimaryStationCheck();
+      updateStationRequirement();
+      updateStationStatusValue();
+    });
+    updateStationStatusValue();
+  }
+  if (adminUserStationMode) {
+    adminUserStationMode.addEventListener('change', updateStationRequirement);
+  }
+  if (adminUserStationStatus) {
+    adminUserStationStatus.addEventListener('change', () => {
+      updateCustomStatusRequirement(adminUserRole && adminUserRole.value === 'station_user');
+      if (adminUserStationStatus.value !== 'custom' && adminUserCustomStatus) {
+        adminUserCustomStatus.value = '';
+      }
+    });
+  }
+</script>
+{% endblock %}

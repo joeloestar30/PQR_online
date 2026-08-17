@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-head"><h1>New Earthquake Event</h1></section>
+<form method="post" class="form-grid">
+  <label>PHIVOLCS Date-Time (Philippine Time) <input type="datetime-local" name="event_datetime" required></label>
+  <label>Magnitude <input type="number" step="0.1" name="magnitude"></label>
+  <label>Latitude <input type="number" step="0.0001" name="latitude"></label>
+  <label>Longitude <input type="number" step="0.0001" name="longitude"></label>
+  <label>Depth KM <input type="number" step="0.01" name="depth_km"></label>
+  <label>Region
+    <select name="region_code" required>
+      <option value="NL">North Luzon</option><option value="SL">South Luzon</option>
+      <option value="VIS">Visayas</option><option value="MIN">Mindanao</option>
+    </select>
+  </label>
+  <label class="wide">Reference Location <input name="reference_location" required></label>
+  <button type="submit">Create Event</button>
+</form>
+{% endblock %}

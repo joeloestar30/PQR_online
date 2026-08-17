@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <h1>Login Monitoring</h1>
+  <p>Track successful logins, failed login attempts, and logout activity.</p>
+</section>
+
+<section class="portal-card">
+  <div class="card-title">Filter Login Logs</div>
+  <form method="get" class="filter-row">
+    <label>Username
+      <input name="username" value="{{ username }}" placeholder="Search username">
+    </label>
+    <label>Event Type
+      <select name="event_type">
+        <option value="">All</option>
+        <option value="login_success" {% if event_type == "login_success" %}selected{% endif %}>Login Success</option>
+        <option value="login_failed" {% if event_type == "login_failed" %}selected{% endif %}>Login Failed</option>
+        <option value="logout" {% if event_type == "logout" %}selected{% endif %}>Logout</option>
+      </select>
+    </label>
+    <div class="event-search">
+      <button type="submit" class="primary-action">Search</button>
+      <a href="/admin/login-logs" class="outline-button">Clear</a>
+    </div>
+  </form>
+
+  <div class="event-table-wrap">
+    <table class="portal-table">
+      <thead>
+        <tr>
+          <th>Date/Time</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Station</th>
+          <th>Event</th>
+          <th>IP Address</th>
+          <th>User Agent</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td>{{ log.created_at }}</td>
+          <td class="linkish">{{ log.username }}</td>
+          <td>{{ log.role or "" }}</td>
+          <td>{% if log.station_code %}{{ log.station_code }} - {{ log.station_name }}{% else %}-{% endif %}</td>
+          <td>{{ log.event_type.replace("_", " ").title() }}</td>
+          <td>{{ log.ip_address }}</td>
+          <td>{{ log.user_agent }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7">No login activity found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <nav class="pagination-bar">
+    <span>Page {{ pagination.page }} of {{ pagination.total_pages }} - {{ pagination.total_count }} log(s)</span>
+    <div>
+      {% if pagination.has_prev %}
+      <a class="outline-button" href="/admin/login-logs?page={{ pagination.prev_page }}&event_type={{ event_type }}&username={{ username }}">Previous</a>
+      {% endif %}
+      {% if pagination.has_next %}
+      <a class="outline-button" href="/admin/login-logs?page={{ pagination.next_page }}&event_type={{ event_type }}&username={{ username }}">Next</a>
+      {% endif %}
+    </div>
+  </nav>
+</section>
+{% endblock %}

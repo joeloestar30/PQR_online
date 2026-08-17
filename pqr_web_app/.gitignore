@@ -1,0 +1,17 @@
+credentials.json
+google-service-account.json
+.env
+.env.*
+!.env.example
+database/*.db
+database/*.db-*
+D:/PQR/
+__pycache__/
+*.pyc
+server.log
+server.err
+worker.log
+worker.err
+phivolcs.html
+tmp_*.jpg
+.venv/

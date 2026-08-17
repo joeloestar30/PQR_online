@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Import PHIVOLCS Events</h1>
+    <p>Scan official monthly PHIVOLCS archive pages, review duplicates, then import selected events.</p>
+  </div>
+  <div class="page-head-action">
+    <a class="outline-button" href="/events/list">Back to Events</a>
+  </div>
+</section>
+
+{% if scan_errors %}
+<section class="messages">
+  {% for error in scan_errors %}
+  <div>{{ error }}</div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="portal-card report-tool-card">
+  <div class="card-title">PHIVOLCS Archive Scanner</div>
+  <form class="report-filter-form phivolcs-import-filter" method="get" action="/events/import-phivolcs">
+    <input type="hidden" name="scan" value="1">
+    <label>Year
+      <select name="year">
+        {% for year in year_options %}
+        <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Month
+      <select name="month">
+        <option value="all" {% if selected_month == "all" %}selected{% endif %}>All Available Months</option>
+        {% for month in month_options %}
+        <option value="{{ month.value }}" {% if selected_month == month.value %}selected{% endif %}>{{ month.label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="primary-action">Scan PHIVOLCS Archive</button>
+  </form>
+</section>
+
+{% if scan_requested %}
+<section class="portal-card phivolcs-import-card">
+  <div class="card-title">
+    PHIVOLCS Event Preview
+    <span>{{ preview_rows|length }} event(s) scanned</span>
+  </div>
+  <form method="post" action="/events/import-phivolcs">
+    <input type="hidden" name="year" value="{{ selected_year }}">
+    <input type="hidden" name="month" value="{{ selected_month }}">
+    <div class="phivolcs-import-actions">
+      <button type="submit" class="primary-action">Import Selected New Events</button>
+      <span>Duplicates are shown for audit but are not selectable.</span>
+    </div>
+    <div class="event-table-wrap">
+      <table class="portal-table phivolcs-import-table">
+        <thead>
+          <tr>
+            <th>Import</th>
+            <th>Status</th>
+            <th>Event Key</th>
+            <th>PST Date-Time</th>
+            <th>Region</th>
+            <th>Magnitude</th>
+            <th>Depth</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Felt Hint</th>
+            <th>Location</th>
+            <th>Match</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in preview_rows %}
+          <tr>
+            <td>
+              {% if row.status == "New" %}
+              <input type="checkbox" name="import_token" value="{{ row.import_token }}" checked>
+              {% else %}
+              <input type="checkbox" disabled>
+              {% endif %}
+            </td>
+            <td>
+              <span class="sync-status {{ 'synced' if row.status == 'New' else 'failed' }}">{{ row.status }}</span>
+            </td>
+            <td class="linkish">{{ row.event.event_key }}</td>
+            <td>{{ row.event_datetime_pst }}</td>
+            <td>{{ row.event.region_code }}</td>
+            <td>M{{ row.event.magnitude or "" }}</td>
+            <td>{{ row.event.depth_km or "" }}</td>
+            <td>{{ row.event.latitude or "" }}</td>
+            <td>{{ row.event.longitude or "" }}</td>
+            <td>{{ "Yes" if row.felt_hint else "No" }}</td>
+            <td>{{ row.event.reference_location }}</td>
+            <td>{{ row.match or "-" }}{% if row.existing_event_key %}: {{ row.existing_event_key }}{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="12">No PHIVOLCS events found for this selection.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mobile-card-list">
+      {% for row in preview_rows[:60] %}
+      <article class="mobile-data-card">
+        <div class="mobile-card-head">
+          <strong>{{ row.event.event_key }}</strong>
+          <span>{{ row.status }}</span>
+        </div>
+        <div class="mobile-card-meta">
+          <span>{{ row.event_datetime_pst }}</span>
+          <span>M{{ row.event.magnitude or "-" }}</span>
+        </div>
+        <p>{{ row.event.reference_location }}</p>
+        <span class="mobile-check-row">{{ "Selectable in table" if row.status == "New" else "Duplicate: " ~ row.match }}</span>
+      </article>
+      {% else %}
+      <article class="mobile-empty-card">No PHIVOLCS events found for this selection.</article>
+      {% endfor %}
+    </div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

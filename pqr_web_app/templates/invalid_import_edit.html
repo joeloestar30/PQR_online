@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="portal-page-head">
+  <div>
+    <h1>Correct Invalid PQR</h1>
+    <p>Fix required fields, validate the row, and submit it to the database.</p>
+  </div>
+  <a class="outline-button" href="/reports/import-invalid">Back to Invalid Rows</a>
+</section>
+
+{% if errors %}
+<section class="messages">
+  {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+</section>
+{% endif %}
+
+<section class="reports-grid invalid-import-edit-grid">
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Correction Form</div>
+    <p class="report-card-copy">Sheet row {{ invalid_row.sheet_row_number or "-" }}: {{ invalid_row.error_reason }}</p>
+    <form class="report-filter-form invalid-import-edit-form" method="post">
+      <label>Station
+        <select name="station_id" required>
+          <option value="">Select station</option>
+          {% for station in stations %}
+          <option value="{{ station.id }}" {% if values.station_id|string == station.id|string or (not values.station_id and values.station_code|upper == station.station_code|upper) %}selected{% endif %}>
+            {{ station.station_code }} - {{ station.station_name }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Event Time UTC
+        <input name="event_key" value="{{ values.event_key }}" placeholder="YYYYMMDDHHMM" maxlength="12" required>
+      </label>
+      <label>Station Officer Initials
+        <input name="officer_initials" value="{{ values.officer_initials }}" required>
+      </label>
+      <label>Remarks
+        <select name="remarks" required>
+          <option value=""></option>
+          {% for option in ["With Phase Reading", "No Quake Record", "No Data", "No Operation", "Intensities", "No Staff", "On Meeting or Lecture or Other Official Business", "On Fieldwork", "On Leave"] %}
+          <option value="{{ option }}" {% if values.remarks == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>P-Polarity
+        <input name="p_polarity" value="{{ values.p_polarity }}">
+      </label>
+      <label>Reserved
+        <input name="reserved_k" value="{{ values.reserved_k }}">
+      </label>
+      <label>P-Arrival
+        <input name="p_arrival" value="{{ values.p_arrival }}" placeholder="HHMMSS.SS">
+      </label>
+      <label>S
+        <input name="s_marker" value="{{ values.s_marker }}">
+      </label>
+      <label>S-Arrival
+        <input name="s_arrival" value="{{ values.s_arrival }}" placeholder="HHMMSS.SS">
+      </label>
+      <label>Amplitude
+        <input name="amplitude" value="{{ values.amplitude }}" type="number" step="0.01">
+      </label>
+      <label>Duration
+        <input name="duration" value="{{ values.duration }}" type="number" step="0.01">
+      </label>
+      <label>Type
+        <input name="event_type" value="{{ values.event_type }}">
+      </label>
+      <label>Submitted
+        <input name="submitted_at" value="{{ values.submitted_at }}" placeholder="YYYY-MM-DD HH:MM">
+      </label>
+      <label>Updated
+        <input name="updated_at" value="{{ values.updated_at }}" placeholder="YYYY-MM-DD HH:MM">
+      </label>
+      <label class="wide-field">Observed Intensities
+        <textarea name="observed_intensities">{{ values.observed_intensities }}</textarea>
+      </label>
+      <label class="wide-field">Instrumental Intensities
+        <textarea name="instrumental_intensities">{{ values.instrumental_intensities }}</textarea>
+      </label>
+      <label class="wide-field">Verified Areas without Intensities
+        <textarea name="verified_areas_without_intensities">{{ values.verified_areas_without_intensities }}</textarea>
+      </label>
+      <button type="submit" class="primary-action">Submit Corrected PQR</button>
+    </form>
+  </article>
+
+  <article class="portal-card report-tool-card">
+    <div class="card-title">Original Google Sheet Row</div>
+    <div class="invalid-import-raw-list">
+      {% for key, value in raw_data.items() %}
+      {% if value %}
+      <div>
+        <strong>{{ key }}</strong>
+        <span>{{ value }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </article>
+</section>
+{% endblock %}
