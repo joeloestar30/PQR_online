@@ -16,7 +16,7 @@ For the Desktop/LAN pilot, use `scripts/start_server.ps1` with SQLite stored on 
 ```text
 SECRET_KEY=change-this-long-random-value
 FLASK_ENV=production
-DATABASE_URL=postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:6543/postgres?sslmode=require
+DATABASE_URL=postgresql://postgres.PROJECT_REF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require
 PQR_ADMIN_USERNAME=admin
 PQR_ADMIN_PASSWORD=change-this-before-first-deploy
 PQR_ADMIN_DISPLAY_NAME=Administrator
@@ -62,7 +62,7 @@ Do not commit `.env`, `credentials.json`, local SQLite database files, logs, or 
 
 1. Create a Supabase project.
 2. Open Project Settings -> Database -> Connection string.
-3. Copy the transaction pooler URI and replace the password placeholder.
+3. Copy the Session pooler URI and replace the password placeholder.
 4. Add `?sslmode=require` if it is not already present.
 5. Use that value as `DATABASE_URL` in both the web service and worker.
 
