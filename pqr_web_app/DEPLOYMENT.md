@@ -107,6 +107,19 @@ python run_worker.py
 
 7. Set the same `DATABASE_URL`, `SECRET_KEY`, Google Sheets variables, and sync interval variables on the worker service.
 
+## Oracle Cloud Always Free
+
+For a free always-running VM option, use Oracle Cloud Always Free Compute with Supabase PostgreSQL. See `docs/oracle_cloud_always_free.md`.
+
+High-level setup:
+
+```text
+Oracle VM: runs pqr-web and pqr-worker with systemd
+Nginx: proxies public HTTP traffic to gunicorn
+Supabase: stores PostgreSQL data
+GitHub: stores and updates the code
+```
+
 ## Notes
 
 - Do not upload `credentials.json` to GitHub or the hosting provider.
