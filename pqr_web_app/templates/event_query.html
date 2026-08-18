@@ -156,16 +156,16 @@
         {% for row in rows %}
         <tr data-copy-row
             data-station-code="{{ row.station_code }}"
-            data-p-arrival="{{ row.p_arrival_display or '-' }}"
-            data-s-arrival="{{ row.s_arrival_display or '-' }}"
-            data-duration="{{ row.duration_display or '-' }}"
+            data-p-arrival="{{ row.p_arrival_display or '' }}"
+            data-s-arrival="{{ row.s_arrival_display or '' }}"
+            data-duration="{{ row.duration_display or '' }}"
             data-observed="{{ row.observed_intensities or '' }}"
             data-instrumental="{{ row.instrumental_intensities or '' }}"
             data-verified="{{ row.verified_areas_without_intensities or '' }}">
           <td class="eq-station-name-cell"><strong>{{ row.station_code }}</strong></td>
-          <td>{{ row.p_arrival_display or "-" }}</td>
-          <td>{{ row.s_arrival_display or "-" }}</td>
-          <td>{{ row.duration_display or "-" }}</td>
+          <td>{{ row.p_arrival_display or "" }}</td>
+          <td>{{ row.s_arrival_display or "" }}</td>
+          <td>{{ row.duration_display or "" }}</td>
           <td>{{ row.observed_intensities or "" }}</td>
           <td>{{ row.instrumental_intensities or "" }}</td>
           <td>{{ row.verified_areas_without_intensities or "" }}</td>
@@ -184,9 +184,9 @@
         <span>{{ row.remarks }}</span>
       </div>
       <div class="mobile-card-stats">
-        <span>P-Arrival <b>{{ row.p_arrival_display or "-" }}</b></span>
-        <span>S-Arrival <b>{{ row.s_arrival_display or "-" }}</b></span>
-        <span>Duration <b>{{ row.duration_display or "-" }}</b></span>
+        <span>P-Arrival <b>{{ row.p_arrival_display or "" }}</b></span>
+        <span>S-Arrival <b>{{ row.s_arrival_display or "" }}</b></span>
+        <span>Duration <b>{{ row.duration_display or "" }}</b></span>
       </div>
       {% if row.observed_intensities or row.instrumental_intensities or row.verified_areas_without_intensities %}
       <dl class="mobile-card-dl">
@@ -233,9 +233,9 @@
     const phaseLineFromRow = row => {
       const station = (row.dataset.stationCode || '').trim();
       const firstGap = station.length === 3 ? '   ' : '  ';
-      const pArrival = (row.dataset.pArrival || '-').trim() || '-';
-      const sArrival = (row.dataset.sArrival || '-').trim() || '-';
-      const duration = (row.dataset.duration || '-').trim() || '-';
+      const pArrival = (row.dataset.pArrival || '').trim();
+      const sArrival = (row.dataset.sArrival || '').trim();
+      const duration = (row.dataset.duration || '').trim();
       return `${station}${firstGap}${pArrival}  ${sArrival}  ${duration}`;
     };
 

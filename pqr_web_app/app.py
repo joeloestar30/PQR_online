@@ -2607,12 +2607,14 @@ def station_report_has_intensity(row):
 
 def event_query_arrival_display(value):
     text = str(value or "").strip()
+    if text == "-":
+        return ""
     return text[2:] if len(text) > 2 else text
 
 
 def event_query_duration_display(value):
     text = str(value or "").strip()
-    if not text:
+    if not text or text == "-":
         return ""
     try:
         return str(int(float(text)))
